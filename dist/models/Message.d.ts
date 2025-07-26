@@ -1,17 +1,24 @@
 export interface Message {
-    id: number;
-    product_id: number;
-    buyer_id: number;
-    seller_id: number;
+    id: string;
+    product_id: string;
+    buyer_id: string;
+    seller_id: string;
     message: string;
     is_initial_message: boolean;
     email_sent: boolean;
+    status: 'pending' | 'accepted' | 'rejected';
+    responded_at?: Date;
     created_at: Date;
 }
 export interface CreateMessageRequest {
-    product_id: number;
-    buyer_id: number;
+    product_id: string;
+    buyer_id: string;
     message: string;
+}
+export interface MessageResponseRequest {
+    message_id: string;
+    seller_id: string;
+    status: 'accepted' | 'rejected';
 }
 export interface MessageWithDetails extends Message {
     buyer_name: string;

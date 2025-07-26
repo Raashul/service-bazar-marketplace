@@ -107,7 +107,7 @@ router.post("/", async (req: Request, res: Response) => {
       product_subcategory: product.subcategory,
       product_subsubcategory: product.subsubcategory,
       product_location: product.location,
-      product_images: product.images || [],
+      product_images: [],
     };
 
     // Send email notification to seller with enhanced error handling

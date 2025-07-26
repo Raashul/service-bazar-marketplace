@@ -10,7 +10,6 @@ export interface Product {
   subsubcategory: string;
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   location: string;
-  images?: string[]; // Deprecated - kept for backward compatibility
   tags: string[];
   is_negotiable: boolean;
   expires_at: Date;
@@ -24,8 +23,6 @@ export interface Product {
 export interface ProductWithImages extends Product {
   product_images: Array<{
     id: string;
-    s3_key: string;
-    s3_url: string;
     original_filename: string;
     signed_url: string;
     display_order: number;
@@ -43,7 +40,6 @@ export interface CreateProductRequest {
   subsubcategory?: string;
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   location: string;
-  images?: string[];
   tags?: string[];
   is_negotiable?: boolean;
   expires_in_days?: number; // Default to 30 days if not provided
@@ -59,7 +55,6 @@ export interface UpdateProductRequest {
   subsubcategory?: string;
   condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   location?: string;
-  images?: string[];
   tags?: string[];
   is_negotiable?: boolean;
   expires_in_days?: number;

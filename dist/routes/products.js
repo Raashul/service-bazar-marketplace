@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const database_1 = require("../config/database");
 const categories_1 = require("../utils/categories");
+const productImages_1 = require("../utils/productImages");
 const router = (0, express_1.Router)();
 router.post("/", async (req, res) => {
     try {
-        const { title, description, price, currency = "USD", category, subcategory = "", subsubcategory = "", condition, location, images = [], tags = [], is_negotiable = true, expires_in_days = 30, } = req.body;
+        const { title, description, price, currency = "USD", category, subcategory = "", subsubcategory = "", condition, location, tags = [], is_negotiable = true, expires_in_days = 30, } = req.body;
         const seller_id = req.body.seller_id;
         if (!title ||
             !description ||
@@ -51,8 +52,8 @@ router.post("/", async (req, res) => {
         expiresAt.setDate(expiresAt.getDate() + expires_in_days);
         const result = await database_1.pool.query(`
       INSERT INTO products 
-      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, location, images, tags, is_negotiable, expires_at, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, location, tags, is_negotiable, expires_at, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       RETURNING *
     `, [
             seller_id,
@@ -65,7 +66,6 @@ router.post("/", async (req, res) => {
             subsubcategory,
             condition,
             location,
-            images,
             tags,
             is_negotiable,
             expiresAt,
@@ -165,8 +165,10 @@ router.get("/", async (req, res) => {
       WHERE p.status = 'active' AND p.expires_at > NOW()
     `;
         const countResult = await database_1.pool.query(countQuery);
+        // Add images to products
+        const productsWithImages = await (0, productImages_1.addImagesToProducts)(result.rows);
         res.json({
-            products: result.rows,
+            products: productsWithImages,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
@@ -192,7 +194,9 @@ router.get("/:id", async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Product not found" });
         }
-        res.json({ product: result.rows[0] });
+        // Add images to product
+        const productWithImages = await (0, productImages_1.addImagesToProduct)(result.rows[0]);
+        res.json({ product: productWithImages });
     }
     catch (error) {
         console.error("Get product error:", error);
@@ -202,7 +206,7 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, price, currency, category, subcategory, subsubcategory, condition, location, images, tags, is_negotiable, expires_in_days, } = req.body;
+        const { title, description, price, currency, category, subcategory, subsubcategory, condition, location, tags, is_negotiable, expires_in_days, } = req.body;
         const seller_id = req.body.seller_id;
         if (!seller_id) {
             return res.status(400).json({ error: "seller_id is required" });
@@ -288,11 +292,6 @@ router.put("/:id", async (req, res) => {
             paramCount++;
             updateFields.push(`location = $${paramCount}`);
             updateValues.push(location);
-        }
-        if (images !== undefined) {
-            paramCount++;
-            updateFields.push(`images = $${paramCount}`);
-            updateValues.push(images);
         }
         if (tags !== undefined) {
             paramCount++;

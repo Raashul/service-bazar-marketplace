@@ -1,13 +1,23 @@
 export interface TokenPayload {
-    userId: number;
+    sub: string;
+    userId: string;
     email: string;
+    iat?: number;
+    exp?: number;
+    iss?: string;
+    aud?: string;
 }
 export interface RefreshTokenPayload {
-    userId: number;
+    sub: string;
+    userId: string;
     tokenId: string;
+    iat?: number;
+    exp?: number;
+    iss?: string;
+    aud?: string;
 }
-export declare const generateAccessToken: (payload: TokenPayload) => string;
-export declare const generateRefreshToken: (payload: RefreshTokenPayload) => string;
+export declare const generateAccessToken: (userId: string, email: string) => string;
+export declare const generateRefreshToken: (userId: string, tokenId: string) => string;
 export declare const verifyAccessToken: (token: string) => TokenPayload;
 export declare const verifyRefreshToken: (token: string) => RefreshTokenPayload;
 export declare const generateTokenId: () => string;

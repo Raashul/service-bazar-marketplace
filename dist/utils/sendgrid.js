@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendBuyerMessageNotification = exports.generateBuyerMessageEmailTemplate = exports.sendEmail = void 0;
+exports.sendBuyerMessageNotificationLegacy = exports.sendBuyerMessageNotificationWithRetry = exports.sendEmailWithRetry = exports.sendBuyerMessageNotification = exports.generateBuyerMessageEmailTemplate = exports.sendEmailLegacy = exports.sendEmail = exports.isValidEmail = void 0;
 const mail_1 = __importDefault(require("@sendgrid/mail"));
 // Initialize SendGrid with API key
 if (process.env.SENDGRID_API_KEY) {
@@ -12,29 +12,136 @@ if (process.env.SENDGRID_API_KEY) {
 else {
     console.warn('SENDGRID_API_KEY not found in environment variables');
 }
+const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+exports.isValidEmail = isValidEmail;
 const sendEmail = async (emailData) => {
     try {
+        // Configuration validation
         if (!process.env.SENDGRID_API_KEY) {
             console.log('SendGrid not configured - email would be sent:', emailData.subject);
-            return true; // Return true for development when SendGrid is not configured
+            return {
+                success: false,
+                error: 'SendGrid API key not configured',
+                errorType: 'CONFIGURATION'
+            };
+        }
+        if (!process.env.FROM_EMAIL) {
+            return {
+                success: false,
+                error: 'FROM_EMAIL not configured',
+                errorType: 'CONFIGURATION'
+            };
+        }
+        // Email validation
+        if (!(0, exports.isValidEmail)(emailData.to)) {
+            return {
+                success: false,
+                error: `Invalid recipient email: ${emailData.to}`,
+                errorType: 'VALIDATION'
+            };
+        }
+        if (!(0, exports.isValidEmail)(process.env.FROM_EMAIL)) {
+            return {
+                success: false,
+                error: `Invalid sender email: ${process.env.FROM_EMAIL}`,
+                errorType: 'VALIDATION'
+            };
+        }
+        // Content validation
+        if (!emailData.subject || emailData.subject.trim().length === 0) {
+            return {
+                success: false,
+                error: 'Email subject is required',
+                errorType: 'VALIDATION'
+            };
+        }
+        if (!emailData.html || emailData.html.trim().length === 0) {
+            return {
+                success: false,
+                error: 'Email content is required',
+                errorType: 'VALIDATION'
+            };
         }
         const msg = {
             to: emailData.to,
-            from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+            from: process.env.FROM_EMAIL,
             subject: emailData.subject,
             text: emailData.text || emailData.html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
             html: emailData.html,
         };
-        await mail_1.default.send(msg);
+        const response = await mail_1.default.send(msg);
         console.log(`Email sent successfully to ${emailData.to}`);
-        return true;
+        return {
+            success: true,
+            statusCode: response[0].statusCode,
+            messageId: response[0].headers['x-message-id']
+        };
     }
     catch (error) {
-        console.error('Error sending email:', error);
-        return false;
+        console.error('SendGrid error details:', {
+            message: error.message,
+            code: error.code,
+            statusCode: error.response?.status,
+            body: error.response?.body
+        });
+        let errorType = 'UNKNOWN';
+        let errorMessage = 'Unknown email sending error';
+        if (error.code) {
+            switch (error.code) {
+                case 'ENOTFOUND':
+                case 'ECONNREFUSED':
+                case 'ETIMEDOUT':
+                    errorType = 'NETWORK';
+                    errorMessage = 'Network connection error to SendGrid';
+                    break;
+                default:
+                    errorType = 'SENDGRID_API';
+                    errorMessage = error.message || 'SendGrid API error';
+            }
+        }
+        else if (error.response) {
+            errorType = 'SENDGRID_API';
+            // Parse SendGrid specific errors
+            if (error.response.status === 400) {
+                errorMessage = 'Bad request - check email format and content';
+            }
+            else if (error.response.status === 401) {
+                errorMessage = 'Invalid SendGrid API key';
+            }
+            else if (error.response.status === 403) {
+                errorMessage = 'SendGrid API access forbidden - check permissions';
+            }
+            else if (error.response.status === 413) {
+                errorMessage = 'Email content too large';
+            }
+            else if (error.response.status === 429) {
+                errorMessage = 'SendGrid rate limit exceeded';
+            }
+            else if (error.response.status >= 500) {
+                errorMessage = 'SendGrid server error - try again later';
+            }
+            else {
+                errorMessage = `SendGrid API error: ${error.response.status}`;
+            }
+        }
+        return {
+            success: false,
+            error: errorMessage,
+            errorType,
+            statusCode: error.response?.status
+        };
     }
 };
 exports.sendEmail = sendEmail;
+// Legacy function for backward compatibility
+const sendEmailLegacy = async (emailData) => {
+    const result = await (0, exports.sendEmail)(emailData);
+    return result.success;
+};
+exports.sendEmailLegacy = sendEmailLegacy;
 const generateBuyerMessageEmailTemplate = (messageDetails) => {
     const { buyer_name, message, product_title, product_description, product_price, product_currency, product_category, product_subcategory, product_subsubcategory, product_location, product_images, buyer_email, buyer_phone } = messageDetails;
     const categoryPath = [product_category, product_subcategory, product_subsubcategory]
@@ -114,4 +221,51 @@ const sendBuyerMessageNotification = async (messageDetails) => {
     return await (0, exports.sendEmail)(emailData);
 };
 exports.sendBuyerMessageNotification = sendBuyerMessageNotification;
+// Retry mechanism for failed emails
+const sendEmailWithRetry = async (emailData, maxRetries = 3, retryDelay = 1000) => {
+    let lastResult;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        console.log(`Email attempt ${attempt}/${maxRetries} to ${emailData.to}`);
+        lastResult = await (0, exports.sendEmail)(emailData);
+        if (lastResult.success) {
+            if (attempt > 1) {
+                console.log(`Email succeeded on retry attempt ${attempt}`);
+            }
+            return lastResult;
+        }
+        // Don't retry on configuration or validation errors
+        if (lastResult.errorType === 'CONFIGURATION' || lastResult.errorType === 'VALIDATION') {
+            console.log(`Not retrying due to ${lastResult.errorType} error: ${lastResult.error}`);
+            return lastResult;
+        }
+        // Don't retry on certain HTTP errors
+        if (lastResult.statusCode === 401 || lastResult.statusCode === 403) {
+            console.log(`Not retrying due to authorization error: ${lastResult.statusCode}`);
+            return lastResult;
+        }
+        if (attempt < maxRetries) {
+            console.log(`Email failed (${lastResult.error}), retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            retryDelay *= 2; // Exponential backoff
+        }
+    }
+    console.log(`Email failed after ${maxRetries} attempts`);
+    return lastResult;
+};
+exports.sendEmailWithRetry = sendEmailWithRetry;
+const sendBuyerMessageNotificationWithRetry = async (messageDetails, maxRetries = 3) => {
+    const emailData = {
+        to: messageDetails.seller_email,
+        subject: `💬 New message about "${messageDetails.product_title}" - LLM Marketplace`,
+        html: (0, exports.generateBuyerMessageEmailTemplate)(messageDetails)
+    };
+    return await (0, exports.sendEmailWithRetry)(emailData, maxRetries);
+};
+exports.sendBuyerMessageNotificationWithRetry = sendBuyerMessageNotificationWithRetry;
+// Legacy function for backward compatibility
+const sendBuyerMessageNotificationLegacy = async (messageDetails) => {
+    const result = await (0, exports.sendBuyerMessageNotification)(messageDetails);
+    return result.success;
+};
+exports.sendBuyerMessageNotificationLegacy = sendBuyerMessageNotificationLegacy;
 //# sourceMappingURL=sendgrid.js.map

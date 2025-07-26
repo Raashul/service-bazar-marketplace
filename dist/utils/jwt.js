@@ -6,7 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateTokenId = exports.verifyRefreshToken = exports.verifyAccessToken = exports.generateRefreshToken = exports.generateAccessToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
-const generateAccessToken = (payload) => {
+const generateAccessToken = (userId, email) => {
+    const payload = {
+        sub: userId, // Industry standard - subject claim
+        userId: userId, // Backward compatibility
+        email: email
+    };
     return jsonwebtoken_1.default.sign(payload, process.env.JWT_SECRET, {
         expiresIn: '1h',
         issuer: 'llm-marketplace',
@@ -14,7 +19,12 @@ const generateAccessToken = (payload) => {
     });
 };
 exports.generateAccessToken = generateAccessToken;
-const generateRefreshToken = (payload) => {
+const generateRefreshToken = (userId, tokenId) => {
+    const payload = {
+        sub: userId, // Industry standard - subject claim
+        userId: userId, // Backward compatibility
+        tokenId: tokenId
+    };
     return jsonwebtoken_1.default.sign(payload, process.env.REFRESH_SECRET, {
         expiresIn: '7d',
         issuer: 'llm-marketplace',

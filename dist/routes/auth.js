@@ -55,14 +55,8 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         const tokenId = (0, jwt_1.generateTokenId)();
-        const accessToken = (0, jwt_1.generateAccessToken)({
-            userId: user.id,
-            email: user.email
-        });
-        const refreshToken = (0, jwt_1.generateRefreshToken)({
-            userId: user.id,
-            tokenId
-        });
+        const accessToken = (0, jwt_1.generateAccessToken)(user.id, user.email);
+        const refreshToken = (0, jwt_1.generateRefreshToken)(user.id, tokenId);
         const tokenHash = crypto_1.default.createHash('sha256').update(refreshToken).digest('hex');
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         await database_1.pool.query('INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [tokenId, user.id, tokenHash, expiresAt]);
@@ -109,10 +103,7 @@ router.post('/refresh', async (req, res) => {
             return res.status(401).json({ error: 'User not found' });
         }
         const user = userResult.rows[0];
-        const newAccessToken = (0, jwt_1.generateAccessToken)({
-            userId: user.id,
-            email: user.email
-        });
+        const newAccessToken = (0, jwt_1.generateAccessToken)(user.id, user.email);
         res.json({
             message: 'Token refreshed successfully',
             accessToken: newAccessToken,

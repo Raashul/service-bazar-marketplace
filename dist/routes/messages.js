@@ -79,13 +79,23 @@ router.post("/", async (req, res) => {
             product_subcategory: product.subcategory,
             product_subsubcategory: product.subsubcategory,
             product_location: product.location,
-            product_images: product.images || [],
+            product_images: [],
         };
-        // Send email notification to seller
-        const emailSent = await (0, sendgrid_1.sendBuyerMessageNotification)(messageWithDetails);
-        // Update message to track email status
-        await database_1.pool.query("UPDATE messages SET email_sent = $1 WHERE id = $2", [
-            emailSent,
+        // Send email notification to seller with enhanced error handling
+        const emailResult = await (0, sendgrid_1.sendBuyerMessageNotificationWithRetry)(messageWithDetails);
+        // Update message to track detailed email status and error information
+        await database_1.pool.query(`UPDATE messages SET 
+       email_sent = $1, 
+       email_error = $2, 
+       email_error_type = $3, 
+       email_attempts = $4, 
+       email_message_id = $5 
+       WHERE id = $6`, [
+            emailResult.success,
+            emailResult.error || null,
+            emailResult.errorType || null,
+            3, // Default to 3 attempts for retry mechanism
+            emailResult.messageId || null,
             newMessage.id,
         ]);
         res.status(201).json({
@@ -96,7 +106,10 @@ router.post("/", async (req, res) => {
                 buyer_id: newMessage.buyer_id,
                 seller_id: newMessage.seller_id,
                 message: newMessage.message,
-                email_sent: emailSent,
+                email_sent: emailResult.success,
+                email_status: emailResult.success ? "delivered" : "failed",
+                email_error: emailResult.error || null,
+                email_error_type: emailResult.errorType || null,
                 created_at: newMessage.created_at,
             },
         });
@@ -121,12 +134,12 @@ router.get("/product/:productId", async (req, res) => {
         if (productCheck.rows.length === 0) {
             return res.status(404).json({ error: "Product not found" });
         }
-        if (productCheck.rows[0].seller_id !== parseInt(seller_id)) {
+        if (productCheck.rows[0].seller_id !== seller_id) {
             return res
                 .status(403)
                 .json({ error: "Not authorized to view messages for this product" });
         }
-        // Get all messages for this product
+        // Get all messages for this product with acceptance status
         const messagesResult = await database_1.pool.query(`
       SELECT m.*, u.name as buyer_name, u.email as buyer_email, u.phone as buyer_phone,
              p.title as product_title
@@ -134,7 +147,13 @@ router.get("/product/:productId", async (req, res) => {
       JOIN users u ON m.buyer_id = u.id
       JOIN products p ON m.product_id = p.id
       WHERE m.product_id = $1
-      ORDER BY m.created_at DESC
+      ORDER BY 
+        CASE m.status 
+          WHEN 'pending' THEN 1 
+          WHEN 'accepted' THEN 2 
+          WHEN 'rejected' THEN 3 
+        END,
+        m.created_at DESC
     `, [productId]);
         res.json({
             messages: messagesResult.rows,
@@ -150,7 +169,7 @@ router.get("/product/:productId", async (req, res) => {
 router.get("/buyer/:buyerId", async (req, res) => {
     try {
         const { buyerId } = req.params;
-        // Get all messages sent by this buyer
+        // Get all messages sent by this buyer with acceptance status
         const messagesResult = await database_1.pool.query(`
       SELECT m.*, 
              p.title as product_title, p.price, p.currency, p.status as product_status,
@@ -159,7 +178,13 @@ router.get("/buyer/:buyerId", async (req, res) => {
       JOIN products p ON m.product_id = p.id
       JOIN users u ON m.seller_id = u.id
       WHERE m.buyer_id = $1
-      ORDER BY m.created_at DESC
+      ORDER BY 
+        CASE m.status 
+          WHEN 'accepted' THEN 1 
+          WHEN 'pending' THEN 2 
+          WHEN 'rejected' THEN 3 
+        END,
+        m.created_at DESC
     `, [buyerId]);
         res.json({
             messages: messagesResult.rows,
@@ -168,6 +193,73 @@ router.get("/buyer/:buyerId", async (req, res) => {
     }
     catch (error) {
         console.error("Get buyer messages error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+// Seller responds to a message (accept/reject) - Tinder-style matching
+router.put("/respond", async (req, res) => {
+    try {
+        const { message_id, seller_id, status } = req.body;
+        if (!message_id || !seller_id || !status) {
+            return res.status(400).json({
+                error: "Required fields: message_id, seller_id, status",
+            });
+        }
+        if (!['accepted', 'rejected'].includes(status)) {
+            return res.status(400).json({
+                error: "Status must be either 'accepted' or 'rejected'",
+            });
+        }
+        // Check if message exists and seller owns the product
+        const messageResult = await database_1.pool.query(`
+      SELECT m.*, p.title as product_title, p.seller_id as product_seller_id,
+             u.name as buyer_name, u.email as buyer_email, u.phone as buyer_phone
+      FROM messages m
+      JOIN products p ON m.product_id = p.id
+      JOIN users u ON m.buyer_id = u.id
+      WHERE m.id = $1
+    `, [message_id]);
+        if (messageResult.rows.length === 0) {
+            return res.status(404).json({ error: "Message not found" });
+        }
+        const message = messageResult.rows[0];
+        // Verify seller owns the product
+        if (message.product_seller_id !== seller_id) {
+            return res.status(403).json({
+                error: "Not authorized to respond to this message",
+            });
+        }
+        // Check if already responded
+        if (message.status !== 'pending') {
+            return res.status(409).json({
+                error: `Message has already been ${message.status}`,
+            });
+        }
+        // Update message status
+        const updateResult = await database_1.pool.query(`UPDATE messages 
+       SET status = $1, responded_at = NOW() 
+       WHERE id = $2 
+       RETURNING *`, [status, message_id]);
+        const updatedMessage = updateResult.rows[0];
+        // TODO: Send notification email to buyer about acceptance/rejection
+        res.json({
+            message: `Message ${status} successfully`,
+            data: {
+                id: updatedMessage.id,
+                product_id: updatedMessage.product_id,
+                buyer_id: updatedMessage.buyer_id,
+                seller_id: updatedMessage.seller_id,
+                status: updatedMessage.status,
+                responded_at: updatedMessage.responded_at,
+                buyer_name: message.buyer_name,
+                buyer_email: message.buyer_email,
+                buyer_phone: message.buyer_phone,
+                product_title: message.product_title,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Message response error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });

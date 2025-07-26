@@ -27,7 +27,6 @@ router.post("/", async (req: Request, res: Response) => {
       subsubcategory = "",
       condition,
       location,
-      images = [],
       tags = [],
       is_negotiable = true,
       expires_in_days = 30,
@@ -92,8 +91,8 @@ router.post("/", async (req: Request, res: Response) => {
     const result = await pool.query(
       `
       INSERT INTO products 
-      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, location, images, tags, is_negotiable, expires_at, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, location, tags, is_negotiable, expires_at, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
       RETURNING *
     `,
       [
@@ -107,7 +106,6 @@ router.post("/", async (req: Request, res: Response) => {
         subsubcategory,
         condition,
         location,
-        images,
         tags,
         is_negotiable,
         expiresAt,
@@ -299,7 +297,6 @@ router.put("/:id", async (req: Request, res: Response) => {
       subsubcategory,
       condition,
       location,
-      images,
       tags,
       is_negotiable,
       expires_in_days,
@@ -404,11 +401,6 @@ router.put("/:id", async (req: Request, res: Response) => {
       paramCount++;
       updateFields.push(`location = $${paramCount}`);
       updateValues.push(location);
-    }
-    if (images !== undefined) {
-      paramCount++;
-      updateFields.push(`images = $${paramCount}`);
-      updateValues.push(images);
     }
     if (tags !== undefined) {
       paramCount++;

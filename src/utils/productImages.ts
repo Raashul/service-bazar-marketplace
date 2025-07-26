@@ -4,8 +4,6 @@ import { ProductWithImages } from '../models/Product';
 
 export interface ProductImageData {
   id: string;
-  s3_key: string;
-  s3_url: string;
   original_filename: string;
   signed_url: string;
   display_order: number;
@@ -32,8 +30,6 @@ export const getProductImages = async (productId: string, previewImageId?: strin
       
       images.push({
         id: image.id,
-        s3_key: image.s3_key,
-        s3_url: image.s3_url,
         original_filename: image.original_filename,
         signed_url: signedUrlResult.success ? signedUrlResult.signedUrl! : '',
         display_order: image.display_order,
