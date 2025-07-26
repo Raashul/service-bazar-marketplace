@@ -1,0 +1,44 @@
+{
+  "name": "llm-marketplace-service",
+  "version": "1.0.0",
+  "description": "Backend service for LLM marketplace",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "create-tables": "ts-node src/scripts/createTables.ts",
+    "migrate-to-uuids": "ts-node src/scripts/migrateToUUIDs.ts",
+    "add-image-tables": "ts-node src/scripts/addImageTables.ts",
+    "db:start": "docker-compose up -d",
+    "db:stop": "docker-compose down",
+    "db:restart": "docker-compose restart",
+    "db:logs": "docker-compose logs -f postgres",
+    "pgadmin:logs": "docker-compose logs -f pgadmin"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/s3-request-presigner": "^3.850.0",
+    "@sendgrid/mail": "^8.1.0",
+    "bcrypt": "^5.1.1",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.11.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^20.8.10",
+    "@types/pg": "^8.10.7",
+    "@types/uuid": "^10.0.0",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.2.2"
+  }
+}

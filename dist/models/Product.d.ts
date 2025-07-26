@@ -1,0 +1,65 @@
+export interface Product {
+    id: number;
+    seller_id: number;
+    title: string;
+    description: string;
+    price: number;
+    currency: string;
+    category: string;
+    subcategory: string;
+    subsubcategory: string;
+    condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+    location: string;
+    images: string[];
+    tags: string[];
+    is_negotiable: boolean;
+    expires_at: Date;
+    status: 'active' | 'sold' | 'expired' | 'removed';
+    created_at: Date;
+    updated_at: Date;
+}
+export interface CreateProductRequest {
+    title: string;
+    description: string;
+    price: number;
+    currency: string;
+    category: string;
+    subcategory?: string;
+    subsubcategory?: string;
+    condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+    location: string;
+    images?: string[];
+    tags?: string[];
+    is_negotiable?: boolean;
+    expires_in_days?: number;
+}
+export interface UpdateProductRequest {
+    title?: string;
+    description?: string;
+    price?: number;
+    currency?: string;
+    category?: string;
+    subcategory?: string;
+    subsubcategory?: string;
+    condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+    location?: string;
+    images?: string[];
+    tags?: string[];
+    is_negotiable?: boolean;
+    expires_in_days?: number;
+}
+export interface ProductSearchQuery {
+    category?: string;
+    subcategory?: string;
+    subsubcategory?: string;
+    min_price?: number;
+    max_price?: number;
+    condition?: string;
+    location?: string;
+    search?: string;
+    tags?: string;
+    status?: 'active' | 'sold' | 'expired';
+    page?: number;
+    limit?: number;
+}
+//# sourceMappingURL=Product.d.ts.map

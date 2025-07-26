@@ -1,0 +1,536 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "LLM Marketplace - Image APIs",
+		"description": "Postman collection for testing image upload and management APIs in the LLM Marketplace service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12345678"
+	},
+	"item": [
+		{
+			"name": "Image Upload",
+			"item": [
+				{
+					"name": "Upload Single Image",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/path/to/your/image.jpg",
+									"description": "Select an image file (JPEG, PNG, WebP, GIF - max 5MB)"
+								},
+								{
+									"key": "product_id",
+									"value": "5b26df89-0cbf-4754-a555-07837fcb4e61",
+									"type": "text",
+									"description": "UUID of the product to upload image for"
+								},
+								{
+									"key": "display_order",
+									"value": "0",
+									"type": "text",
+									"description": "Display order for the image (optional, default: 0)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/images/upload",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"upload"
+							]
+						},
+						"description": "Upload a single image to a product. The image will be stored in S3 and a signed URL will be returned for immediate access."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "image",
+											"type": "file",
+											"src": "/path/to/image.jpg"
+										},
+										{
+											"key": "product_id",
+											"value": "5b26df89-0cbf-4754-a555-07837fcb4e61",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/api/images/upload",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"upload"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"Image uploaded successfully\",\n    \"image\": {\n        \"id\": \"img-uuid-123\",\n        \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n        \"s3_key\": \"products/5b26df89-0cbf-4754-a555-07837fcb4e61/abc123_timestamp.jpg\",\n        \"s3_url\": \"s3://llm-marketplace-images/products/.../image.jpg\",\n        \"original_filename\": \"phone_photo.jpg\",\n        \"mime_type\": \"image/jpeg\",\n        \"file_size\": 245760,\n        \"display_order\": 0,\n        \"signed_url\": \"https://s3.amazonaws.com/signed-url...\",\n        \"created_at\": \"2025-07-26T21:30:00.000Z\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload Multiple Images",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "images",
+									"type": "file",
+									"src": "/path/to/image1.jpg",
+									"description": "Select first image file"
+								},
+								{
+									"key": "images",
+									"type": "file",
+									"src": "/path/to/image2.jpg",
+									"description": "Select second image file"
+								},
+								{
+									"key": "images",
+									"type": "file",
+									"src": "/path/to/image3.png",
+									"description": "Select third image file"
+								},
+								{
+									"key": "product_id",
+									"value": "5b26df89-0cbf-4754-a555-07837fcb4e61",
+									"type": "text",
+									"description": "UUID of the product to upload images for"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/images/upload-multiple",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"upload-multiple"
+							]
+						},
+						"description": "Upload multiple images to a product at once. Maximum 10 images per request. Each image will be automatically assigned a display order based on upload sequence."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "images",
+											"type": "file",
+											"src": "/path/to/image1.jpg"
+										},
+										{
+											"key": "images",
+											"type": "file",
+											"src": "/path/to/image2.jpg"
+										},
+										{
+											"key": "product_id",
+											"value": "5b26df89-0cbf-4754-a555-07837fcb4e61",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/api/images/upload-multiple",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"upload-multiple"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"2 images uploaded successfully\",\n    \"images\": [\n        {\n            \"id\": \"img-uuid-123\",\n            \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n            \"s3_key\": \"products/.../image1.jpg\",\n            \"signed_url\": \"https://s3.amazonaws.com/signed-url1...\",\n            \"display_order\": 0\n        },\n        {\n            \"id\": \"img-uuid-456\",\n            \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n            \"s3_key\": \"products/.../image2.jpg\",\n            \"signed_url\": \"https://s3.amazonaws.com/signed-url2...\",\n            \"display_order\": 1\n        }\n    ]\n}"
+						}
+					]
+				}
+			],
+			"description": "Upload images to products with S3 storage and signed URL generation"
+		},
+		{
+			"name": "Image Management",
+			"item": [
+				{
+					"name": "Get Product Images",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/images/product/{{product_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"product",
+								"{{product_id}}"
+							]
+						},
+						"description": "Retrieve all images for a specific product with signed URLs for secure access. Images are ordered by display_order and creation time."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/images/product/5b26df89-0cbf-4754-a555-07837fcb4e61",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"product",
+										"5b26df89-0cbf-4754-a555-07837fcb4e61"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"images\": [\n        {\n            \"id\": \"img-uuid-123\",\n            \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n            \"s3_key\": \"products/.../image1.jpg\",\n            \"s3_url\": \"s3://bucket/...\",\n            \"original_filename\": \"phone_front.jpg\",\n            \"mime_type\": \"image/jpeg\",\n            \"file_size\": 245760,\n            \"display_order\": 0,\n            \"signed_url\": \"https://s3.amazonaws.com/signed-url...\",\n            \"created_at\": \"2025-07-26T21:30:00.000Z\"\n        }\n    ],\n    \"total\": 1\n}"
+						}
+					]
+				},
+				{
+					"name": "Set Preview Image",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"product_id\": \"{{product_id}}\",\n    \"image_id\": \"{{image_id}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/images/set-preview",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"set-preview"
+							]
+						},
+						"description": "Set a specific image as the preview/thumbnail image for a product. This image will be used as the main image in product listings."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n    \"image_id\": \"img-uuid-123\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/images/set-preview",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"set-preview"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"Preview image set successfully\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Reorder Images",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"product_id\": \"{{product_id}}\",\n    \"image_orders\": [\n        {\n            \"image_id\": \"img-uuid-123\",\n            \"display_order\": 0\n        },\n        {\n            \"image_id\": \"img-uuid-456\",\n            \"display_order\": 1\n        },\n        {\n            \"image_id\": \"img-uuid-789\",\n            \"display_order\": 2\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/images/reorder",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"reorder"
+							]
+						},
+						"description": "Reorder images for a product by setting new display_order values. Lower numbers appear first in the gallery."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\",\n    \"image_orders\": [\n        {\n            \"image_id\": \"img-uuid-123\",\n            \"display_order\": 0\n        }\n    ]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/images/reorder",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"reorder"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"Images reordered successfully\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Image",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"product_id\": \"{{product_id}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/images/{{image_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"images",
+								"{{image_id}}"
+							]
+						},
+						"description": "Delete an image from both S3 storage and the database. If the deleted image was the preview image, the preview will be cleared."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"product_id\": \"5b26df89-0cbf-4754-a555-07837fcb4e61\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/images/img-uuid-123",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"images",
+										"img-uuid-123"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"Image deleted successfully\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Manage existing product images - view, reorder, set preview, and delete"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string",
+			"description": "Base URL for the LLM Marketplace API"
+		},
+		{
+			"key": "product_id",
+			"value": "5b26df89-0cbf-4754-a555-07837fcb4e61",
+			"type": "string",
+			"description": "Sample product UUID for testing"
+		},
+		{
+			"key": "image_id",
+			"value": "img-uuid-123",
+			"type": "string",
+			"description": "Sample image UUID for testing"
+		}
+	]
+}
