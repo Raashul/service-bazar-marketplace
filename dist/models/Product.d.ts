@@ -1,3 +1,13 @@
+export interface LocationInfo {
+    mapbox_id?: string;
+    full_address: string;
+    latitude: number;
+    longitude: number;
+    place_name: string;
+    district?: string;
+    region?: string;
+    country: string;
+}
 export interface Product {
     id: string;
     seller_id: string;
@@ -10,12 +20,21 @@ export interface Product {
     subsubcategory: string;
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     location: string;
-    tags: string[];
+    listing_type: 'product' | 'service';
+    enriched_tags: string[];
     is_negotiable: boolean;
     expires_at: Date;
     status: 'active' | 'sold' | 'expired' | 'removed';
     preview_image_id?: string;
     image_count: number;
+    mapbox_id?: string;
+    full_address?: string;
+    latitude?: number;
+    longitude?: number;
+    place_name?: string;
+    district?: string;
+    region?: string;
+    country?: string;
     created_at: Date;
     updated_at: Date;
 }
@@ -38,7 +57,8 @@ export interface CreateProductRequest {
     subsubcategory?: string;
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     location: string;
-    tags?: string[];
+    location_data?: LocationInfo;
+    listing_type?: 'product' | 'service';
     is_negotiable?: boolean;
     expires_in_days?: number;
 }
@@ -52,7 +72,7 @@ export interface UpdateProductRequest {
     subsubcategory?: string;
     condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     location?: string;
-    tags?: string[];
+    listing_type?: 'product' | 'service';
     is_negotiable?: boolean;
     expires_in_days?: number;
 }
@@ -65,7 +85,6 @@ export interface ProductSearchQuery {
     condition?: string;
     location?: string;
     search?: string;
-    tags?: string;
     status?: 'active' | 'sold' | 'expired';
     page?: number;
     limit?: number;

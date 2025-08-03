@@ -62,7 +62,7 @@ const migrateToUUIDs = async () => {
         condition VARCHAR(20) CHECK (condition IN ('new', 'like_new', 'good', 'fair', 'poor')),
         location VARCHAR(255) NOT NULL,
         images TEXT[], -- Array of image URLs
-        tags TEXT[], -- Array of tags
+        enriched_tags TEXT[], -- LLM-generated semantic tags
         is_negotiable BOOLEAN DEFAULT true,
         expires_at TIMESTAMP NOT NULL,
         status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'sold', 'expired', 'removed')),

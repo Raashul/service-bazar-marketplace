@@ -46,6 +46,8 @@ const createRefreshTokensTable = async () => {
     }
 };
 const createProductsTable = async () => {
+    // Skip PostGIS for now - use simple lat/lng columns
+    // await pool.query('CREATE EXTENSION IF NOT EXISTS postgis');
     const createTableQuery = `
     CREATE TABLE IF NOT EXISTS products (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,19 +61,41 @@ const createProductsTable = async () => {
       subsubcategory VARCHAR(100) DEFAULT '',
       condition VARCHAR(20) CHECK (condition IN ('new', 'like_new', 'good', 'fair', 'poor')),
       location VARCHAR(255) NOT NULL,
-      tags TEXT[],
+      listing_type VARCHAR(20) DEFAULT 'product' CHECK (listing_type IN ('product', 'service')),
+      enriched_tags TEXT[],
       is_negotiable BOOLEAN DEFAULT true,
       expires_at TIMESTAMP NOT NULL,
       status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'sold', 'expired', 'removed')),
       preview_image_id UUID,
       image_count INTEGER DEFAULT 0,
+      -- Location fields for Mapbox integration
+      mapbox_id VARCHAR(255),
+      full_address TEXT,
+      latitude DECIMAL(10, 8),
+      longitude DECIMAL(11, 8),
+      place_name VARCHAR(255),
+      district VARCHAR(100),
+      region VARCHAR(100),
+      country VARCHAR(50) DEFAULT 'Nepal',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
     try {
         await database_1.pool.query(createTableQuery);
-        console.log('Products table created successfully');
+        // Create regular indexes for location queries (without PostGIS)
+        await database_1.pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_coordinates 
+      ON products(latitude, longitude)
+      WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+    `);
+        // Create regular indexes for location fields
+        await database_1.pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_place_name ON products(place_name);
+      CREATE INDEX IF NOT EXISTS idx_products_district ON products(district);
+      CREATE INDEX IF NOT EXISTS idx_products_region ON products(region);
+    `);
+        console.log('Products table created successfully with location support');
     }
     catch (error) {
         console.error('Error creating products table:', error);

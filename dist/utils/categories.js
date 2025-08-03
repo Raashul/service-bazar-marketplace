@@ -2,50 +2,36 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCategoryHierarchy = exports.getSubsubcategories = exports.getSubcategories = exports.getAllCategories = exports.validateSubsubcategory = exports.validateSubcategory = exports.validateCategory = exports.VALID_SUBCATEGORIES = exports.VALID_CATEGORIES = void 0;
 exports.VALID_CATEGORIES = {
-    'Electronics': [
-        'CellPhone & Accessories',
-        'Computers, Laptop & Tablets',
-        'Camera & Accessories'
+    Electronics: [
+        "CellPhone & Accessories",
+        "Computers, Laptop & Tablets",
+        "Camera & Accessories",
     ],
-    'Vehicles': [
-        'Car',
-        'Bike',
-        'Bicycle',
-        'Scooter'
-    ],
-    'Books': [],
-    'Service': [
-        'Workout Class',
-        'Makeup Class',
-        'Yoga Class',
-        'Private Tuition'
-    ]
+    Vehicles: ["Car", "Bike", "Bicycle", "Scooter"],
+    Books: [],
+    Services: ["Workout", "Makeup", "Yoga", "Photography"],
+    RealEstate: ["ForSale", "ForRent"],
 };
 exports.VALID_SUBCATEGORIES = {
-    'CellPhone & Accessories': [
-        'Cell Phone',
-        'Cell Phone Accessories'
+    "CellPhone & Accessories": ["Cell Phone", "Cell Phone Accessories"],
+    "Computers, Laptop & Tablets": [
+        "Laptop",
+        "Desktop",
+        "Tablets",
+        "Kindle",
+        "Accessories",
     ],
-    'Computers, Laptop & Tablets': [
-        'Laptop',
-        'Desktop',
-        'Tablets',
-        'Kindle',
-        'Accessories'
-    ],
-    'Camera & Accessories': [
-        'Camera',
-        'Lenses',
-        'Other Camera & Accessories'
-    ],
-    'Car': [],
-    'Bike': [],
-    'Bicycle': [],
-    'Scooter': [],
-    'Workout Class': [],
-    'Makeup Class': [],
-    'Yoga Class': [],
-    'Private Tuition': []
+    "Camera & Accessories": ["Camera", "Lenses", "Other Camera & Accessories"],
+    Car: [],
+    Bike: [],
+    Bicycle: [],
+    Scooter: [],
+    Workout: [],
+    Makeup: [],
+    Yoga: [],
+    Photography: [],
+    ForSale: ["House", "Apartment", "Land", "Office"],
+    ForRent: ["House", "Apartment", "Land", "Office"],
 };
 const validateCategory = (category) => {
     return Object.keys(exports.VALID_CATEGORIES).includes(category);
@@ -58,7 +44,7 @@ const validateSubcategory = (category, subcategory) => {
     const validSubcategories = exports.VALID_CATEGORIES[category];
     // If category has no subcategories, subcategory should be empty or same as category
     if (validSubcategories.length === 0) {
-        return subcategory === '' || subcategory === category;
+        return subcategory === "" || subcategory === category;
     }
     return validSubcategories.includes(subcategory);
 };
@@ -70,7 +56,7 @@ const validateSubsubcategory = (subcategory, subsubcategory) => {
     const validSubsubcategories = exports.VALID_SUBCATEGORIES[subcategory];
     // If subcategory has no sub-subcategories, subsubcategory should be empty or same as subcategory
     if (validSubsubcategories.length === 0) {
-        return subsubcategory === '' || subsubcategory === subcategory;
+        return subsubcategory === "" || subsubcategory === subcategory;
     }
     return validSubsubcategories.includes(subsubcategory);
 };
@@ -89,14 +75,14 @@ const getSubsubcategories = (subcategory) => {
 exports.getSubsubcategories = getSubsubcategories;
 const getCategoryHierarchy = () => {
     const hierarchy = {};
-    Object.keys(exports.VALID_CATEGORIES).forEach(category => {
+    Object.keys(exports.VALID_CATEGORIES).forEach((category) => {
         hierarchy[category] = {};
         const subcategories = exports.VALID_CATEGORIES[category];
         if (subcategories.length === 0) {
             hierarchy[category] = null; // No subcategories
         }
         else {
-            subcategories.forEach(subcategory => {
+            subcategories.forEach((subcategory) => {
                 const subsubcategories = exports.VALID_SUBCATEGORIES[subcategory] || [];
                 if (subsubcategories.length === 0) {
                     hierarchy[category][subcategory] = null;

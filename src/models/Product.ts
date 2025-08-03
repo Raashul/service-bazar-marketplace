@@ -1,3 +1,14 @@
+export interface LocationInfo {
+  mapbox_id?: string;
+  full_address: string;
+  latitude: number;
+  longitude: number;
+  place_name: string;
+  district?: string;
+  region?: string;
+  country: string;
+}
+
 export interface Product {
   id: string; // UUID
   seller_id: string; // UUID
@@ -9,13 +20,23 @@ export interface Product {
   subcategory: string;
   subsubcategory: string;
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  location: string;
-  tags: string[];
+  location: string; // Legacy field for backward compatibility
+  listing_type: 'product' | 'service';
+  enriched_tags: string[];
   is_negotiable: boolean;
   expires_at: Date;
   status: 'active' | 'sold' | 'expired' | 'removed';
   preview_image_id?: string; // UUID of preview image
   image_count: number;
+  // Location fields
+  mapbox_id?: string;
+  full_address?: string;
+  latitude?: number;
+  longitude?: number;
+  place_name?: string;
+  district?: string;
+  region?: string;
+  country?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -39,8 +60,9 @@ export interface CreateProductRequest {
   subcategory?: string;
   subsubcategory?: string;
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  location: string;
-  tags?: string[];
+  location: string; // Legacy field for backward compatibility
+  location_data?: LocationInfo; // New structured location data from Mapbox
+  listing_type?: 'product' | 'service';
   is_negotiable?: boolean;
   expires_in_days?: number; // Default to 30 days if not provided
 }
@@ -55,7 +77,7 @@ export interface UpdateProductRequest {
   subsubcategory?: string;
   condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
   location?: string;
-  tags?: string[];
+  listing_type?: 'product' | 'service';
   is_negotiable?: boolean;
   expires_in_days?: number;
 }
@@ -69,7 +91,6 @@ export interface ProductSearchQuery {
   condition?: string;
   location?: string;
   search?: string; // Search in title/description
-  tags?: string;
   status?: 'active' | 'sold' | 'expired';
   page?: number;
   limit?: number;

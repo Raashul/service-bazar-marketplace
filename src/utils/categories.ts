@@ -3,84 +3,76 @@ export interface CategoryStructure {
 }
 
 export const VALID_CATEGORIES: CategoryStructure = {
-  'Electronics': [
-    'CellPhone & Accessories',
-    'Computers, Laptop & Tablets',
-    'Camera & Accessories'
+  Electronics: [
+    "CellPhone & Accessories",
+    "Computers, Laptop & Tablets",
+    "Camera & Accessories",
   ],
-  'Vehicles': [
-    'Car',
-    'Bike',
-    'Bicycle',
-    'Scooter'
-  ],
-  'Books': [],
-  'Service': [
-    'Workout Class',
-    'Makeup Class',
-    'Yoga Class',
-    'Private Tuition'
-  ]
+  Vehicles: ["Car", "Bike", "Bicycle", "Scooter"],
+  Books: [],
+  Services: ["Workout", "Makeup", "Yoga", "Photography"],
+  RealEstate: ["ForSale", "ForRent"],
 };
 
 export const VALID_SUBCATEGORIES: CategoryStructure = {
-  'CellPhone & Accessories': [
-    'Cell Phone',
-    'Cell Phone Accessories'
+  "CellPhone & Accessories": ["Cell Phone", "Cell Phone Accessories"],
+  "Computers, Laptop & Tablets": [
+    "Laptop",
+    "Desktop",
+    "Tablets",
+    "Kindle",
+    "Accessories",
   ],
-  'Computers, Laptop & Tablets': [
-    'Laptop',
-    'Desktop',
-    'Tablets',
-    'Kindle',
-    'Accessories'
-  ],
-  'Camera & Accessories': [
-    'Camera',
-    'Lenses',
-    'Other Camera & Accessories'
-  ],
-  'Car': [],
-  'Bike': [],
-  'Bicycle': [],
-  'Scooter': [],
-  'Workout Class': [],
-  'Makeup Class': [],
-  'Yoga Class': [],
-  'Private Tuition': []
+  "Camera & Accessories": ["Camera", "Lenses", "Other Camera & Accessories"],
+  Car: [],
+  Bike: [],
+  Bicycle: [],
+  Scooter: [],
+  Workout: [],
+  Makeup: [],
+  Yoga: [],
+  Photography: [],
+  ForSale: ["House", "Apartment", "Land", "Office"],
+  ForRent: ["House", "Apartment", "Land", "Office"],
 };
 
 export const validateCategory = (category: string): boolean => {
   return Object.keys(VALID_CATEGORIES).includes(category);
 };
 
-export const validateSubcategory = (category: string, subcategory: string): boolean => {
+export const validateSubcategory = (
+  category: string,
+  subcategory: string
+): boolean => {
   if (!validateCategory(category)) {
     return false;
   }
-  
+
   const validSubcategories = VALID_CATEGORIES[category];
-  
+
   // If category has no subcategories, subcategory should be empty or same as category
   if (validSubcategories.length === 0) {
-    return subcategory === '' || subcategory === category;
+    return subcategory === "" || subcategory === category;
   }
-  
+
   return validSubcategories.includes(subcategory);
 };
 
-export const validateSubsubcategory = (subcategory: string, subsubcategory: string): boolean => {
+export const validateSubsubcategory = (
+  subcategory: string,
+  subsubcategory: string
+): boolean => {
   if (!VALID_SUBCATEGORIES[subcategory]) {
     return false;
   }
-  
+
   const validSubsubcategories = VALID_SUBCATEGORIES[subcategory];
-  
+
   // If subcategory has no sub-subcategories, subsubcategory should be empty or same as subcategory
   if (validSubsubcategories.length === 0) {
-    return subsubcategory === '' || subsubcategory === subcategory;
+    return subsubcategory === "" || subsubcategory === subcategory;
   }
-  
+
   return validSubsubcategories.includes(subsubcategory);
 };
 
@@ -98,15 +90,15 @@ export const getSubsubcategories = (subcategory: string) => {
 
 export const getCategoryHierarchy = () => {
   const hierarchy: any = {};
-  
-  Object.keys(VALID_CATEGORIES).forEach(category => {
+
+  Object.keys(VALID_CATEGORIES).forEach((category) => {
     hierarchy[category] = {};
-    
+
     const subcategories = VALID_CATEGORIES[category];
     if (subcategories.length === 0) {
       hierarchy[category] = null; // No subcategories
     } else {
-      subcategories.forEach(subcategory => {
+      subcategories.forEach((subcategory) => {
         const subsubcategories = VALID_SUBCATEGORIES[subcategory] || [];
         if (subsubcategories.length === 0) {
           hierarchy[category][subcategory] = null;
@@ -116,6 +108,6 @@ export const getCategoryHierarchy = () => {
       });
     }
   });
-  
+
   return hierarchy;
 };

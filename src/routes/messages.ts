@@ -1,6 +1,10 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../config/database";
-import { CreateMessageRequest, MessageWithDetails, MessageResponseRequest } from "../models/Message";
+import {
+  CreateMessageRequest,
+  MessageWithDetails,
+  MessageResponseRequest,
+} from "../models/Message";
 import { sendBuyerMessageNotificationWithRetry } from "../utils/sendgrid";
 
 const router = Router();
@@ -72,11 +76,11 @@ router.post("/", async (req: Request, res: Response) => {
       [product_id, buyer_id, product.seller_id]
     );
 
-    // if (existingMessage.rows.length > 0) {
-    //   return res.status(409).json({
-    //     error: 'You have already sent an initial message about this product'
-    //   });
-    // }
+    if (existingMessage.rows.length > 0) {
+      return res.status(409).json({
+        error: "You have already sent an initial message about this product",
+      });
+    }
 
     // Insert the message
     const messageResult = await pool.query(
@@ -111,7 +115,9 @@ router.post("/", async (req: Request, res: Response) => {
     };
 
     // Send email notification to seller with enhanced error handling
-    const emailResult = await sendBuyerMessageNotificationWithRetry(messageWithDetails);
+    const emailResult = await sendBuyerMessageNotificationWithRetry(
+      messageWithDetails
+    );
 
     // Update message to track detailed email status and error information
     await pool.query(
@@ -258,7 +264,7 @@ router.put("/respond", async (req: Request, res: Response) => {
       });
     }
 
-    if (!['accepted', 'rejected'].includes(status)) {
+    if (!["accepted", "rejected"].includes(status)) {
       return res.status(400).json({
         error: "Status must be either 'accepted' or 'rejected'",
       });
@@ -291,7 +297,7 @@ router.put("/respond", async (req: Request, res: Response) => {
     }
 
     // Check if already responded
-    if (message.status !== 'pending') {
+    if (message.status !== "pending") {
       return res.status(409).json({
         error: `Message has already been ${message.status}`,
       });

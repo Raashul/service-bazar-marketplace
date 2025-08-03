@@ -1,0 +1,3 @@
+[] Optimize the matching system to query db with category, sub-category and location
+[] Integrate kafka for full async processing
+[] Re-add email into matching system

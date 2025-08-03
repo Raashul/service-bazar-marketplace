@@ -50,11 +50,11 @@ router.post("/", async (req, res) => {
         }
         // Check if this buyer has already sent an initial message for this product
         const existingMessage = await database_1.pool.query("SELECT id FROM messages WHERE product_id = $1 AND buyer_id = $2 AND seller_id = $3", [product_id, buyer_id, product.seller_id]);
-        // if (existingMessage.rows.length > 0) {
-        //   return res.status(409).json({
-        //     error: 'You have already sent an initial message about this product'
-        //   });
-        // }
+        if (existingMessage.rows.length > 0) {
+            return res.status(409).json({
+                error: "You have already sent an initial message about this product",
+            });
+        }
         // Insert the message
         const messageResult = await database_1.pool.query(`
       INSERT INTO messages (product_id, buyer_id, seller_id, message, is_initial_message, created_at)
@@ -205,7 +205,7 @@ router.put("/respond", async (req, res) => {
                 error: "Required fields: message_id, seller_id, status",
             });
         }
-        if (!['accepted', 'rejected'].includes(status)) {
+        if (!["accepted", "rejected"].includes(status)) {
             return res.status(400).json({
                 error: "Status must be either 'accepted' or 'rejected'",
             });
@@ -230,7 +230,7 @@ router.put("/respond", async (req, res) => {
             });
         }
         // Check if already responded
-        if (message.status !== 'pending') {
+        if (message.status !== "pending") {
             return res.status(409).json({
                 error: `Message has already been ${message.status}`,
             });
