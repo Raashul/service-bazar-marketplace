@@ -6,6 +6,7 @@ import messageRoutes from './routes/messages';
 import imageRoutes from './routes/images';
 import locationRoutes from './routes/locations';
 import preferencesRoutes from './routes/preferences';
+import matchesRoutes from './routes/matches';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/preferences', preferencesRoutes);
+app.use('/api/matches', matchesRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
