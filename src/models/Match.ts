@@ -7,9 +7,11 @@ export interface Match {
   match_reason: string;
   product_snapshot: ProductSnapshot;
   status: 'new' | 'viewed' | 'interested' | 'contacted' | 'dismissed';
+  product_status: 'active' | 'sold' | 'expired' | 'removed';
   matched_at: Date;
   viewed_at?: Date;
   updated_at: Date;
+  product_status_updated_at?: Date;
 }
 
 export interface ProductSnapshot {
@@ -55,9 +57,16 @@ export interface MatchResponse {
   match_reason: string;
   product_snapshot: ProductSnapshot;
   status: 'new' | 'viewed' | 'interested' | 'contacted' | 'dismissed';
+  product_status: 'active' | 'sold' | 'expired' | 'removed';
   matched_at: Date;
   viewed_at?: Date;
+  product_status_updated_at?: Date;
   is_product_available: boolean; // Whether the original product is still active
+  availability_info: {
+    status: 'active' | 'sold' | 'expired' | 'removed';
+    message: string;
+    alternative_actions: string[];
+  };
 }
 
 export interface CreateMatchRequest {

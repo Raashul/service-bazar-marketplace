@@ -448,8 +448,8 @@ Reason: ${matchReason}
     // Insert match into database
     const insertQuery = `
       INSERT INTO buyer_preference_matches 
-      (preference_id, buyer_id, product_id, match_score, match_reason, product_snapshot)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      (preference_id, buyer_id, product_id, match_score, match_reason, product_snapshot, product_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (preference_id, product_id) DO NOTHING
       RETURNING id
     `;
@@ -460,7 +460,8 @@ Reason: ${matchReason}
       product.id,
       match.score,
       matchReason,
-      JSON.stringify(productSnapshot)
+      JSON.stringify(productSnapshot),
+      product.status || 'active'
     ]);
 
     if (result.rows.length > 0) {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
 import { Match, MatchResponse, UpdateMatchRequest } from '../models/Match';
+import { getAvailabilityInfo, getMatchStatsByStatus } from '../services/matchSyncService';
 
 const router = Router();
 
@@ -49,11 +50,9 @@ router.get('/', async (req: Request, res: Response) => {
     const query = `
       SELECT 
         m.*,
-        bp.preference_text,
-        CASE WHEN p.id IS NOT NULL AND p.status = 'active' THEN true ELSE false END as is_product_available
+        bp.preference_text
       FROM buyer_preference_matches m
       LEFT JOIN buyer_preferences bp ON m.preference_id = bp.id
-      LEFT JOIN products p ON m.product_id = p.id
       WHERE ${whereConditions.join(' AND ')}
       ORDER BY ${orderBy}
       LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
@@ -74,18 +73,24 @@ router.get('/', async (req: Request, res: Response) => {
     
     // Format response
     const response = {
-      matches: matches.map(m => ({
-        id: m.id,
-        preference_id: m.preference_id,
-        preference_text: m.preference_text,
-        match_score: m.match_score,
-        match_reason: m.match_reason,
-        product_snapshot: m.product_snapshot,
-        status: m.status,
-        matched_at: m.matched_at,
-        viewed_at: m.viewed_at,
-        is_product_available: m.is_product_available
-      })),
+      matches: matches.map(m => {
+        const availabilityInfo = getAvailabilityInfo(m.product_status);
+        return {
+          id: m.id,
+          preference_id: m.preference_id,
+          preference_text: m.preference_text,
+          match_score: m.match_score,
+          match_reason: m.match_reason,
+          product_snapshot: m.product_snapshot,
+          status: m.status,
+          product_status: m.product_status,
+          matched_at: m.matched_at,
+          viewed_at: m.viewed_at,
+          product_status_updated_at: m.product_status_updated_at,
+          is_product_available: m.product_status === 'active',
+          availability_info: availabilityInfo
+        };
+      }),
       total,
       page: Number(page),
       limit: Number(limit),
@@ -117,11 +122,9 @@ router.get('/preference/:preference_id', async (req: Request, res: Response) => 
     const query = `
       SELECT 
         m.*,
-        bp.preference_text,
-        CASE WHEN p.id IS NOT NULL AND p.status = 'active' THEN true ELSE false END as is_product_available
+        bp.preference_text
       FROM buyer_preference_matches m
       LEFT JOIN buyer_preferences bp ON m.preference_id = bp.id
-      LEFT JOIN products p ON m.product_id = p.id
       WHERE m.preference_id = $1 AND m.buyer_id = $2
       ORDER BY m.match_score DESC, m.matched_at DESC
       LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
@@ -144,16 +147,22 @@ router.get('/preference/:preference_id', async (req: Request, res: Response) => 
     // Format response
     const response = {
       preference_text: matches[0].preference_text,
-      matches: matches.map(m => ({
-        id: m.id,
-        match_score: m.match_score,
-        match_reason: m.match_reason,
-        product_snapshot: m.product_snapshot,
-        status: m.status,
-        matched_at: m.matched_at,
-        viewed_at: m.viewed_at,
-        is_product_available: m.is_product_available
-      })),
+      matches: matches.map(m => {
+        const availabilityInfo = getAvailabilityInfo(m.product_status);
+        return {
+          id: m.id,
+          match_score: m.match_score,
+          match_reason: m.match_reason,
+          product_snapshot: m.product_snapshot,
+          status: m.status,
+          product_status: m.product_status,
+          matched_at: m.matched_at,
+          viewed_at: m.viewed_at,
+          product_status_updated_at: m.product_status_updated_at,
+          is_product_available: m.product_status === 'active',
+          availability_info: availabilityInfo
+        };
+      }),
       total,
       page: Number(page),
       limit: Number(limit),
@@ -235,6 +244,10 @@ router.get('/stats', async (req: Request, res: Response) => {
         COUNT(CASE WHEN status = 'interested' THEN 1 END) as interested_matches,
         COUNT(CASE WHEN status = 'contacted' THEN 1 END) as contacted_matches,
         COUNT(CASE WHEN status = 'dismissed' THEN 1 END) as dismissed_matches,
+        COUNT(CASE WHEN product_status = 'active' THEN 1 END) as active_products,
+        COUNT(CASE WHEN product_status = 'sold' THEN 1 END) as sold_products,
+        COUNT(CASE WHEN product_status = 'expired' THEN 1 END) as expired_products,
+        COUNT(CASE WHEN product_status = 'removed' THEN 1 END) as removed_products,
         AVG(match_score) as avg_match_score,
         MAX(match_score) as best_match_score,
         COUNT(CASE WHEN matched_at >= NOW() - INTERVAL '7 days' THEN 1 END) as matches_this_week,
@@ -248,12 +261,18 @@ router.get('/stats', async (req: Request, res: Response) => {
 
     res.json({
       total_matches: parseInt(stats.total_matches),
-      by_status: {
+      by_match_status: {
         new: parseInt(stats.new_matches),
         viewed: parseInt(stats.viewed_matches), 
         interested: parseInt(stats.interested_matches),
         contacted: parseInt(stats.contacted_matches),
         dismissed: parseInt(stats.dismissed_matches)
+      },
+      by_product_status: {
+        active: parseInt(stats.active_products),
+        sold: parseInt(stats.sold_products),
+        expired: parseInt(stats.expired_products),
+        removed: parseInt(stats.removed_products)
       },
       match_quality: {
         avg_score: parseFloat(stats.avg_match_score) || 0,

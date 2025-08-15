@@ -14,6 +14,7 @@ import {
 } from "../utils/categories";
 import { addImagesToProduct, addImagesToProducts } from "../utils/productImages";
 import { processMatches } from "../services/buyerMatchingService";
+import { updateRelatedMatches } from "../services/matchSyncService";
 import { extractSearchMetadata } from "../services/llmService";
 import { executeSearchQuery } from "../utils/searchQueryBuilder";
 import { NaturalLanguageSearchRequest, NaturalLanguageSearchResponse } from "../models/SearchMetadata";
@@ -819,6 +820,73 @@ router.post("/debug-search", async (req: Request, res: Response) => {
       error: "Query failed", 
       details: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+});
+
+// Update product status (mark as sold, expired, removed)
+router.put("/:id/status", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    // Validate status
+    if (!status || !['active', 'sold', 'expired', 'removed'].includes(status)) {
+      return res.status(400).json({
+        error: 'Valid status required: active, sold, expired, or removed'
+      });
+    }
+
+    // Check if product exists
+    const checkQuery = 'SELECT id, status, seller_id, title FROM products WHERE id = $1';
+    const checkResult = await pool.query(checkQuery, [id]);
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const product = checkResult.rows[0];
+    const oldStatus = product.status;
+
+    // Only update if status actually changed
+    if (oldStatus === status) {
+      return res.json({
+        message: 'Product status unchanged',
+        product: { id, status, title: product.title }
+      });
+    }
+
+    console.log(`📊 Updating product ${id} status: ${oldStatus} → ${status}`);
+
+    // Update product status
+    const updateQuery = `
+      UPDATE products 
+      SET status = $1, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $2 
+      RETURNING *
+    `;
+    
+    const updateResult = await pool.query(updateQuery, [status, id]);
+    const updatedProduct = updateResult.rows[0];
+
+    // Update related matches asynchronously
+    updateRelatedMatches(id, status as any, reason).catch(error => {
+      console.error('Error updating related matches:', error);
+    });
+
+    res.json({
+      message: 'Product status updated successfully',
+      product: {
+        id: updatedProduct.id,
+        title: updatedProduct.title,
+        status: updatedProduct.status,
+        previous_status: oldStatus,
+        updated_at: updatedProduct.updated_at
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating product status:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
