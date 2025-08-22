@@ -576,7 +576,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
     // Extract metadata using LLM (no location extraction)
     console.log(`🔍 Extracting metadata from query: "${query}"`);
     const extractedMetadata = await extractSearchMetadata(query);
-    console.log('🔍 Extracted metadata:', extractedMetadata);
+    console.log('🔍 Extracted metadata:', JSON.stringify(extractedMetadata, null, 2));
 
     let searchResults;
     let searchCenter: { location: string; coordinates: [number, number]; search_radius_km: number; } | undefined;
@@ -596,7 +596,8 @@ router.post("/search/natural", async (req: Request, res: Response) => {
           min_price: extractedMetadata.min_price,
           max_price: extractedMetadata.max_price,
           page,
-          limit
+          limit,
+          fallbackQuery: query // Add original query for category mapping
         }
       );
 
@@ -608,7 +609,8 @@ router.post("/search/natural", async (req: Request, res: Response) => {
           keywords: extractedMetadata.keywords,
           listing_type: extractedMetadata.listing_type,
           min_price: extractedMetadata.min_price,
-          max_price: extractedMetadata.max_price
+          max_price: extractedMetadata.max_price,
+          fallbackQuery: query // Add original query for category mapping
         }
       );
 

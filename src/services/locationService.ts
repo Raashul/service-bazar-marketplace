@@ -1,4 +1,5 @@
 import { pool } from '../config/database';
+import { mapQueryToCategories, buildCategorySearchConditions } from './categoryMappingService';
 
 // Location data structure for Mapbox responses
 export interface LocationData {
@@ -143,6 +144,8 @@ export class LocationService {
           keywordConditions.push(`(
             p.title ILIKE $${paramCount} OR 
             p.description ILIKE $${paramCount} OR
+            p.category ILIKE $${paramCount} OR
+            p.subcategory ILIKE $${paramCount} OR
             EXISTS (
               SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
               WHERE enriched_tag ILIKE $${paramCount}
@@ -153,6 +156,43 @@ export class LocationService {
 
         if (keywordConditions.length > 0) {
           query += ` AND (${keywordConditions.join(' OR ')})`;
+        }
+      } else if (otherFilters.fallbackQuery && otherFilters.fallbackQuery.trim().length > 0) {
+        // Fallback search when no keywords are extracted - use category mapping
+        console.log('🔄 Location service using fallback search for:', otherFilters.fallbackQuery.trim());
+        
+        const categoryMappings = mapQueryToCategories(otherFilters.fallbackQuery.trim());
+        console.log('🔄 Location service found category mappings:', categoryMappings);
+        
+        if (categoryMappings.length > 0) {
+          // Use category-based search
+          const { conditions, params, newParamCount } = buildCategorySearchConditions(
+            categoryMappings, 
+            paramCount
+          );
+          
+          if (conditions.length > 0) {
+            query += ` AND (${conditions.join(' OR ')})`;
+            queryParams.push(...params);
+            paramCount = newParamCount;
+            console.log('🔄 Location service using category-based search with conditions:', conditions);
+          }
+        } else {
+          // Fall back to text search if no category mappings found
+          paramCount++;
+          const searchTerm = `%${otherFilters.fallbackQuery.trim()}%`;
+          query += ` AND (
+            p.title ILIKE $${paramCount} OR 
+            p.description ILIKE $${paramCount} OR
+            p.category ILIKE $${paramCount} OR
+            p.subcategory ILIKE $${paramCount} OR
+            EXISTS (
+              SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
+              WHERE enriched_tag ILIKE $${paramCount}
+            )
+          )`;
+          queryParams.push(searchTerm);
+          console.log('🔄 Location service using text-based fallback search');
         }
       }
 
@@ -275,6 +315,8 @@ export class LocationService {
           keywordConditions.push(`(
             p.title ILIKE $${paramCount} OR 
             p.description ILIKE $${paramCount} OR
+            p.category ILIKE $${paramCount} OR
+            p.subcategory ILIKE $${paramCount} OR
             EXISTS (
               SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
               WHERE enriched_tag ILIKE $${paramCount}
@@ -285,6 +327,38 @@ export class LocationService {
 
         if (keywordConditions.length > 0) {
           query += ` AND (${keywordConditions.join(' OR ')})`;
+        }
+      } else if (otherFilters.fallbackQuery && otherFilters.fallbackQuery.trim().length > 0) {
+        // Fallback search when no keywords are extracted - use category mapping
+        const categoryMappings = mapQueryToCategories(otherFilters.fallbackQuery.trim());
+        
+        if (categoryMappings.length > 0) {
+          // Use category-based search
+          const { conditions, params, newParamCount } = buildCategorySearchConditions(
+            categoryMappings, 
+            paramCount
+          );
+          
+          if (conditions.length > 0) {
+            query += ` AND (${conditions.join(' OR ')})`;
+            queryParams.push(...params);
+            paramCount = newParamCount;
+          }
+        } else {
+          // Fall back to text search if no category mappings found
+          paramCount++;
+          const searchTerm = `%${otherFilters.fallbackQuery.trim()}%`;
+          query += ` AND (
+            p.title ILIKE $${paramCount} OR 
+            p.description ILIKE $${paramCount} OR
+            p.category ILIKE $${paramCount} OR
+            p.subcategory ILIKE $${paramCount} OR
+            EXISTS (
+              SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
+              WHERE enriched_tag ILIKE $${paramCount}
+            )
+          )`;
+          queryParams.push(searchTerm);
         }
       }
 

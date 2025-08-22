@@ -21,18 +21,20 @@ First, determine if this is a PRODUCT search or SERVICE search:
 
 Extract the following information and return it as a JSON object:
 - listing_type: "product" or "service"
-- keywords: array of relevant search terms
+- keywords: array of relevant search terms (for generic terms like "car", include synonyms like "vehicle", "automobile")
 - min_price: minimum price if specified (number only)
 - max_price: maximum price if specified (number only) 
 - currency: currency code (default to USD if not specified)
-- category: general category (Electronics, Services, Clothing, etc.)
+- category: general category (Electronics, Services, Clothing, Vehicles, etc.)
 - subcategory: more specific category if identifiable
-- condition: one of "new", "like_new", "good", "fair", "poor" if mentioned (products only)
+- condition: one of "new", "like_new", "good", "fair", "poor" if mentioned or implied (products only)
 - features: array of specific features (for products: storage, color; for services: specializations)
 - service_type: type of service needed (only for services)
 - availability: time preferences if mentioned (only for services) 
 - experience_level: skill level required if mentioned (only for services)
 - is_negotiable: true if user mentions negotiable/OBO, false if firm price mentioned
+
+IMPORTANT: For generic searches like "used car" or "used phones", include multiple relevant keywords and synonyms to ensure broader matching.
 
 Examples:
 "laptop under $800" → 
@@ -43,6 +45,24 @@ Examples:
   "currency": "USD",
   "category": "Electronics",
   "subcategory": "Computers"
+}
+
+"used car" →
+{
+  "listing_type": "product",
+  "keywords": ["car", "vehicle", "automobile"],
+  "category": "Vehicles",
+  "subcategory": "Cars",
+  "condition": "good"
+}
+
+"used phones" →
+{
+  "listing_type": "product",
+  "keywords": ["phone", "mobile", "smartphone", "cellphone"],
+  "category": "Electronics",
+  "subcategory": "CellPhone & Accessories",
+  "condition": "good"
 }
 
 "makeup artist for weddings" →

@@ -441,7 +441,7 @@ router.post("/search/natural", async (req, res) => {
         // Extract metadata using LLM (no location extraction)
         console.log(`🔍 Extracting metadata from query: "${query}"`);
         const extractedMetadata = await (0, llmService_1.extractSearchMetadata)(query);
-        console.log('🔍 Extracted metadata:', extractedMetadata);
+        console.log('🔍 Extracted metadata:', JSON.stringify(extractedMetadata, null, 2));
         let searchResults;
         let searchCenter;
         // Check if location data was provided by user

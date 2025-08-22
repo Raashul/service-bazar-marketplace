@@ -1,6 +1,7 @@
 import { SearchMetadata } from "../models/SearchMetadata";
 import { pool } from "../config/database";
 import { addImagesToProducts } from "./productImages";
+import { mapQueryToCategories, buildCategorySearchConditions } from "../services/categoryMappingService";
 
 interface QueryBuilder {
   baseQuery: string;
@@ -12,7 +13,8 @@ interface QueryBuilder {
 export const buildSearchQuery = (
   metadata: SearchMetadata,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  fallbackQuery?: string
 ) => {
   const builder: QueryBuilder = {
     baseQuery: `
@@ -34,6 +36,8 @@ export const buildSearchQuery = (
       keywordConditions.push(`(
         p.title ILIKE $${builder.paramCount} OR 
         p.description ILIKE $${builder.paramCount} OR
+        p.category ILIKE $${builder.paramCount} OR
+        p.subcategory ILIKE $${builder.paramCount} OR
         EXISTS (
           SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
           WHERE enriched_tag ILIKE $${builder.paramCount}
@@ -42,8 +46,64 @@ export const buildSearchQuery = (
       builder.queryParams.push(`%${keyword}%`);
     });
 
+    // Add category mapping as additional OR conditions if fallbackQuery is provided
+    if (fallbackQuery && fallbackQuery.trim().length > 0) {
+      const categoryMappings = mapQueryToCategories(fallbackQuery.trim());
+      if (categoryMappings.length > 0) {
+        const { conditions, params, newParamCount } = buildCategorySearchConditions(
+          categoryMappings, 
+          builder.paramCount
+        );
+        
+        if (conditions.length > 0) {
+          keywordConditions.push(...conditions);
+          builder.queryParams.push(...params);
+          builder.paramCount = newParamCount;
+          console.log('🔄 Added category mapping to keyword search:', conditions);
+        }
+      }
+    }
+
     if (keywordConditions.length > 0) {
       builder.whereConditions.push(`(${keywordConditions.join(" OR ")})`);
+    }
+  } else if (fallbackQuery && fallbackQuery.trim().length > 0) {
+    // Fallback search when no keywords are extracted
+    console.log('🔄 Using fallback search for:', fallbackQuery.trim());
+    
+    // First try category mapping
+    const categoryMappings = mapQueryToCategories(fallbackQuery.trim());
+    console.log('🔄 Found category mappings:', categoryMappings);
+    
+    if (categoryMappings.length > 0) {
+      // Use category-based search
+      const { conditions, params, newParamCount } = buildCategorySearchConditions(
+        categoryMappings, 
+        builder.paramCount
+      );
+      
+      if (conditions.length > 0) {
+        builder.whereConditions.push(`(${conditions.join(' OR ')})`);
+        builder.queryParams.push(...params);
+        builder.paramCount = newParamCount;
+        console.log('🔄 Using category-based search with conditions:', conditions);
+      }
+    } else {
+      // Fall back to text search if no category mappings found
+      builder.paramCount++;
+      const searchTerm = `%${fallbackQuery.trim()}%`;
+      builder.whereConditions.push(`(
+        p.title ILIKE $${builder.paramCount} OR 
+        p.description ILIKE $${builder.paramCount} OR
+        p.category ILIKE $${builder.paramCount} OR
+        p.subcategory ILIKE $${builder.paramCount} OR
+        EXISTS (
+          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
+          WHERE enriched_tag ILIKE $${builder.paramCount}
+        )
+      )`);
+      builder.queryParams.push(searchTerm);
+      console.log('🔄 Using text-based fallback search');
     }
   }
 
@@ -74,10 +134,17 @@ export const buildSearchQuery = (
     builder.queryParams.push(metadata.currency);
   }
 
-  // Category filters
+  // Category filters - make more flexible for generic searches
   if (metadata.category) {
     builder.paramCount++;
-    builder.whereConditions.push(`p.category ILIKE $${builder.paramCount}`);
+    builder.whereConditions.push(`(
+      p.category ILIKE $${builder.paramCount} OR
+      p.subcategory ILIKE $${builder.paramCount} OR
+      EXISTS (
+        SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
+        WHERE enriched_tag ILIKE $${builder.paramCount}
+      )
+    )`);
     builder.queryParams.push(`%${metadata.category}%`);
   }
 
@@ -103,12 +170,7 @@ export const buildSearchQuery = (
     builder.queryParams.push(`%${metadata.subsubcategory}%`);
   }
 
-  // Condition filter
-  if (metadata.condition) {
-    builder.paramCount++;
-    builder.whereConditions.push(`p.condition = $${builder.paramCount}`);
-    builder.queryParams.push(metadata.condition);
-  }
+  // Condition filter removed - not useful for search matching
 
   // Location filtering is now handled separately via locationService
   // when location_data is provided in the search request
