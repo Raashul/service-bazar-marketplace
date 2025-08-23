@@ -33,16 +33,35 @@ const addLocationColumns = async () => {
       ADD COLUMN country VARCHAR(50) DEFAULT 'Nepal'
     `);
 
-    // Enable PostGIS extension if not already enabled
-    await pool.query(`CREATE EXTENSION IF NOT EXISTS postgis`);
-
-    // Create spatial index for efficient location queries
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_products_location 
-      ON products USING GIST (ST_Point(longitude, latitude))
-    `);
-
-    console.log('Successfully added location columns and spatial index');
+    // Try to enable PostGIS extension, fall back to regular indexes if not available
+    try {
+      await pool.query(`CREATE EXTENSION IF NOT EXISTS postgis`);
+      
+      // Create spatial index for efficient location queries
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_products_location 
+        ON products USING GIST (ST_Point(longitude, latitude))
+      `);
+      
+      console.log('Successfully added location columns with PostGIS spatial index');
+    } catch (error) {
+      console.log('PostGIS not available, creating regular indexes for location');
+      
+      // Create regular indexes for location queries
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_products_coordinates 
+        ON products(latitude, longitude)
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+      `);
+      
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_products_place_name ON products(place_name);
+        CREATE INDEX IF NOT EXISTS idx_products_district ON products(district);
+        CREATE INDEX IF NOT EXISTS idx_products_region ON products(region);
+      `);
+      
+      console.log('Successfully added location columns with regular indexes');
+    }
     
   } catch (error) {
     console.error('Error adding location columns:', error);

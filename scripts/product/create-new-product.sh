@@ -82,7 +82,7 @@ create_response=$(curl -s --location 'http://localhost:3000/api/products' \
         \"listing_type\": \"product\",
         \"is_negotiable\": true,
         \"expires_in_days\": 30,
-        \"seller_id\": \"bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d\"
+        \"seller_id\": \"b212486e-6749-447c-86f6-30c22d2432e1\"
     }")
 
 if [ $? -eq 0 ] && [ ! -z "$create_response" ]; then

@@ -11,6 +11,7 @@
     "migrate-to-uuids": "ts-node src/scripts/migrateToUUIDs.ts",
     "add-image-tables": "ts-node src/scripts/addImageTables.ts",
     "add-listing-type": "ts-node src/scripts/addListingTypeColumn.ts",
+    "fix-location-type": "ts-node src/scripts/addLocationColumns.ts",
     "db:start": "docker-compose up -d",
     "db:stop": "docker-compose down",
     "db:restart": "docker-compose restart",
