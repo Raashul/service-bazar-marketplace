@@ -1,4 +1,4 @@
-curl --location 'http://localhost:3001/api/products' \
+curl --location 'http://localhost:3000/api/products' \
 --header 'Content-Type: application/json' \
 --data '{
     "title": "Professional Wedding Photography",
@@ -10,17 +10,17 @@ curl --location 'http://localhost:3001/api/products' \
     "subcategory": "Photography",
     "location": "Patan, Lalitpur",
     "location_data": {
-        "mapbox_id": "dXJuOm1ieHBsYzo2eWlx",
-        "full_address": "Patan, Lalitpur, Bagmati Province, Nepal",
-        "latitude": 27.6766,
-        "longitude": 85.3250,
-        "place_name": "Patan",
-        "district": "Lalitpur",
-        "region": "Bagmati Province",
-        "country": "Nepal"
+        "mapbox_id": "dXJuOm1ieHBsYzpxV2pz",
+        "full_address": "Virginia, United States",
+        "latitude": 38.888414,
+        "longitude": -77.091601,
+        "place_name": "Arlington",
+        "district": "Arlington County",
+        "region": "Virginia",
+        "country": "United States"
     },
     "listing_type": "service",
     "is_negotiable": false,
     "expires_in_days": 45,
-    "seller_id": "81a561ef-6ffd-4939-8fa8-55eedae0b047"
-}'
+    "seller_id": "bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d"
+}' --silent && echo "Successfully created service: Professional Wedding Photography"

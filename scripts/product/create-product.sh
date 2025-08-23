@@ -1,4 +1,3 @@
-echo "Creating product: iphone 13 max 256 gb"
 curl --location 'http://localhost:3000/api/products' \
 --header 'Content-Type: application/json' \
 --data '{
@@ -23,10 +22,9 @@ curl --location 'http://localhost:3000/api/products' \
     "is_negotiable": true,
     "expires_in_days": 30,
     "seller_id": "bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d"
-}'
+}' --silent && echo "Successfully created product: iphone 13 max 256 gb"
 
 
-echo "Creating product: 1 Bedroom Apartment for Rent - Arlington, VA"
 curl --location 'http://localhost:3000/api/products' \
 --header 'Content-Type: application/json' \
 --data '{
@@ -52,10 +50,9 @@ curl --location 'http://localhost:3000/api/products' \
     "is_negotiable": true,
     "expires_in_days": 30,
     "seller_id": "bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d"
-}'
+}' --silent && echo "Successfully created product: 1 Bedroom Apartment for Rent - Arlington, VA"
 
 
-echo "Creating product: 2015 Toyota corolla S Plus Sedan 4D"
 curl --location 'http://localhost:3000/api/products' \
 --header 'Content-Type: application/json' \
 --data '{
@@ -81,4 +78,4 @@ curl --location 'http://localhost:3000/api/products' \
     "is_negotiable": true,
     "expires_in_days": 30,
     "seller_id": "bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d"
-}'
+}' --silent && echo "Successfully created product: 2015 Toyota corolla S Plus Sedan 4D"

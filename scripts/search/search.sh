@@ -60,14 +60,18 @@ if [ $? -eq 0 ] && [ ! -z "$search_response" ]; then
     echo "✅ Search completed!"
     echo ""
     
-    # Get the total number of products
-    total_products=$(echo "$search_response" | jq -r '.total // 0' 2>/dev/null)
-    echo "📋 Found $total_products product(s)"
-    echo "==========="
+    # Get the actual number of products in the array
+    actual_products=$(echo "$search_response" | jq -r '.products | length' 2>/dev/null)
     
-    # Display each product
-    echo "$search_response" | jq -r '.products[] | 
-        "
+    if [ "$actual_products" -eq 0 ]; then
+        echo "❌ No data available. Try another query."
+    else
+        echo "📋 Found $actual_products product(s)"
+        echo "==========="
+        
+        # Display each product
+        echo "$search_response" | jq -r '.products[] | 
+            "
 Title: " + .title + "
 Description: " + .description + "
 Price: $" + .price + " " + .currency + "
@@ -75,6 +79,7 @@ Seller: " + .seller_name + "
 Email: " + .seller_email + "
 Phone: " + .seller_phone + "
 ---"' 2>/dev/null
+    fi
 else
     echo "❌ Search failed"
     exit 1

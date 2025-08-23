@@ -1,0 +1,93 @@
+#!/bin/bash
+
+echo "🔧 Service Listing Creation Tool"
+echo "==============================="
+
+read -p "Enter service title: " title
+
+if [ -z "$title" ]; then
+    echo "Error: Service title is required"
+    exit 1
+fi
+
+read -p "Enter service description: " description
+
+if [ -z "$description" ]; then
+    echo "Error: Service description is required"
+    exit 1
+fi
+
+read -p "Enter service price (USD): " price
+
+if [ -z "$price" ]; then
+    echo "Error: Service price is required"
+    exit 1
+fi
+
+# Validate price is a number
+if ! [[ "$price" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "Error: Price must be a valid number"
+    exit 1
+fi
+
+read -p "Enter location: " location
+
+if [ -z "$location" ]; then
+    echo "Error: Location is required"
+    exit 1
+fi
+
+location_data=""
+
+if [ ! -z "$location" ]; then
+    echo "🌍 Searching for location: $location"
+    
+    encoded_location=$(echo "$location" | sed 's/ /+/g')
+    location_response=$(curl -s --location "http://localhost:3000/api/locations/search?q=${encoded_location}&limit=3")
+    
+    if [ $? -eq 0 ] && [ ! -z "$location_response" ]; then
+        echo "📍 Location found!"
+        location_data=$(echo "$location_response" | jq -r '.suggestions[0]' 2>/dev/null)
+        
+        if [ "$location_data" != "null" ] && [ ! -z "$location_data" ]; then
+            selected_location=$(echo "$location_data" | jq -r '.full_address // .place_name // "Unknown"' 2>/dev/null)
+            echo "📍 Using location: $selected_location"
+        else
+            echo "⚠️  No location data found, using provided location"
+            location_data="null"
+        fi
+    else
+        echo "⚠️  Location search failed, using provided location"
+        location_data="null"
+    fi
+fi
+
+echo ""
+echo "🔧  Creating service: \"$title\""
+echo "💰 Price: \$$price USD"
+echo "📍 Location: $location"
+
+create_response=$(curl -s --location 'http://localhost:3000/api/products' \
+    --header 'Content-Type: application/json' \
+    --data "{
+        \"title\": \"$title\",
+        \"description\": \"$description\",
+        \"price\": $price,
+        \"currency\": \"USD\",
+        \"category\": \"Services\",
+        \"subcategory\": \"Photography\",
+        \"condition\": \"new\",
+        \"location\": \"$location\",
+        \"location_data\": $location_data,
+        \"listing_type\": \"service\",
+        \"is_negotiable\": false,
+        \"expires_in_days\": 45,
+        \"seller_id\": \"bb4c1fb0-57a9-4d75-9112-d5daa3af8c1d\"
+    }")
+
+if [ $? -eq 0 ] && [ ! -z "$create_response" ]; then
+    echo "✅ Successfully created service: $title"
+else
+    echo "❌ Failed to create service"
+    exit 1
+fi

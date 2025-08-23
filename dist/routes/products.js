@@ -455,13 +455,15 @@ router.post("/search/natural", async (req, res) => {
                 min_price: extractedMetadata.min_price,
                 max_price: extractedMetadata.max_price,
                 page,
-                limit
+                limit,
+                fallbackQuery: query // Add original query for category mapping
             });
             const total = await locationService_1.default.getLocationSearchCount(locationInfo.latitude, locationInfo.longitude, 3, {
                 keywords: extractedMetadata.keywords,
                 listing_type: extractedMetadata.listing_type,
                 min_price: extractedMetadata.min_price,
-                max_price: extractedMetadata.max_price
+                max_price: extractedMetadata.max_price,
+                fallbackQuery: query // Add original query for category mapping
             });
             searchResults = {
                 products: await (0, productImages_1.addImagesToProducts)(products),
