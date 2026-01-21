@@ -12,14 +12,23 @@ import {
   validateSubsubcategory,
   getCategoryHierarchy,
 } from "../utils/categories";
-import { addImagesToProduct, addImagesToProducts } from "../utils/productImages";
+import {
+  addImagesToProduct,
+  addImagesToProducts,
+} from "../utils/productImages";
 import { processMatches } from "../services/buyerMatchingService";
 import { updateRelatedMatches } from "../services/matchSyncService";
 import { extractSearchMetadata } from "../services/llmService";
 import { executeSearchQuery } from "../utils/searchQueryBuilder";
-import { NaturalLanguageSearchRequest, NaturalLanguageSearchResponse } from "../models/SearchMetadata";
+import {
+  NaturalLanguageSearchRequest,
+  NaturalLanguageSearchResponse,
+} from "../models/SearchMetadata";
 import { extractEnrichedTags } from "../services/llmService";
-import { cleanProductContent, getCleaningPreview } from "../services/contentCleaningService";
+import {
+  cleanProductContent,
+  getCleaningPreview,
+} from "../services/contentCleaningService";
 import locationService from "../services/locationService";
 
 const router = Router();
@@ -37,7 +46,7 @@ router.post("/", async (req: Request, res: Response) => {
       condition,
       location,
       location_data, // New Mapbox location data
-      listing_type = 'product',
+      listing_type = "product",
       is_negotiable = true,
       expires_in_days = 30,
     }: CreateProductRequest & { seller_id: string } = req.body;
@@ -45,14 +54,15 @@ router.post("/", async (req: Request, res: Response) => {
     const seller_id = req.body.seller_id;
 
     // For services, condition should default to 'new' if not provided
-    const finalCondition = listing_type === 'service' && !condition ? 'new' : condition;
+    const finalCondition =
+      listing_type === "service" && !condition ? "new" : condition;
 
     if (
       !title ||
       !description ||
       !price ||
       !category ||
-      (listing_type === 'product' && !condition) ||
+      (listing_type === "product" && !condition) ||
       !location ||
       !seller_id
     ) {
@@ -107,18 +117,18 @@ router.post("/", async (req: Request, res: Response) => {
       locationInfo = locationService.validateLocationData(location_data);
       if (!locationInfo) {
         return res.status(400).json({
-          error: "Invalid location data provided"
+          error: "Invalid location data provided",
         });
       }
     }
 
     // Step 2: Clean title only (preserve description exactly as entered)
-    console.log('Cleaning product title...');
+    console.log("Cleaning product title...");
     const cleaningResult = await cleanProductContent(title, description);
-    console.log('Content cleaning result:', {
+    console.log("Content cleaning result:", {
       method: cleaningResult.method,
       changes: cleaningResult.changes.changesApplied,
-      cost_saved: cleaningResult.cost_saved
+      cost_saved: cleaningResult.cost_saved,
     });
 
     // Use cleaned title but preserve original description
@@ -126,9 +136,13 @@ router.post("/", async (req: Request, res: Response) => {
     const finalDescription = description; // Preserve original description formatting
 
     // Step 3: Generate enriched tags using cleaned title and original description
-    console.log('Generating enriched tags for product...');
-    const enrichedTags = await extractEnrichedTags(finalTitle, finalDescription, price);
-    console.log('Generated enriched tags:', enrichedTags);
+    console.log("Generating enriched tags for product...");
+    const enrichedTags = await extractEnrichedTags(
+      finalTitle,
+      finalDescription,
+      price
+    );
+    console.log("Generated enriched tags:", enrichedTags);
 
     const result = await pool.query(
       `
@@ -168,9 +182,9 @@ router.post("/", async (req: Request, res: Response) => {
     const product = result.rows[0];
 
     // Step 4: Process buyer preference matching (fire and forget)
-    console.log('🎯 Checking for buyer preference matches...');
-    processMatches(product).catch(error => {
-      console.error('Error in buyer matching process:', error);
+    console.log("🎯 Checking for buyer preference matches...");
+    processMatches(product).catch((error) => {
+      console.error("Error in buyer matching process:", error);
       // Don't fail the product creation if matching fails
     });
 
@@ -182,15 +196,17 @@ router.post("/", async (req: Request, res: Response) => {
         method: cleaningResult.method,
         original_title: cleaningResult.original.title,
         description_preserved: true, // Description formatting preserved exactly as entered
-        note: "Description preserved with original formatting (emojis, paragraphs, etc.)"
+        note: "Description preserved with original formatting (emojis, paragraphs, etc.)",
       },
-      location_info: locationInfo ? {
-        place_name: locationInfo.place_name,
-        full_address: locationInfo.full_address,
-        coordinates: [locationInfo.longitude, locationInfo.latitude],
-        district: locationInfo.district,
-        region: locationInfo.region
-      } : null
+      location_info: locationInfo
+        ? {
+            place_name: locationInfo.place_name,
+            full_address: locationInfo.full_address,
+            coordinates: [locationInfo.longitude, locationInfo.latitude],
+            district: locationInfo.district,
+            region: locationInfo.region,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Create product error:", error);
@@ -283,7 +299,6 @@ router.get("/", async (req: Request, res: Response) => {
       query += ` AND (p.title ILIKE $${paramCount} OR p.description ILIKE $${paramCount})`;
       queryParams.push(`%${search}%`);
     }
-
 
     query += ` ORDER BY p.created_at DESC`;
 
@@ -552,14 +567,21 @@ router.delete("/:id", async (req: Request, res: Response) => {
 // Natural Language Search endpoint with optional Mapbox location
 router.post("/search/natural", async (req: Request, res: Response) => {
   try {
-    const { query, location_data, limit = 20, page = 1 }: NaturalLanguageSearchRequest = req.body;
+    const {
+      query,
+      location_data,
+      limit = 20,
+      page = 1,
+    }: NaturalLanguageSearchRequest = req.body;
 
     if (!query) {
       return res.status(400).json({ error: "Search query is required" });
     }
 
-    if (typeof query !== 'string' || query.trim().length === 0) {
-      return res.status(400).json({ error: "Query must be a non-empty string" });
+    if (typeof query !== "string" || query.trim().length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Query must be a non-empty string" });
     }
 
     // Validate location data if provided
@@ -568,7 +590,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
       locationInfo = locationService.validateLocationData(location_data);
       if (!locationInfo) {
         return res.status(400).json({
-          error: "Invalid location data provided"
+          error: "Invalid location data provided",
         });
       }
     }
@@ -576,20 +598,29 @@ router.post("/search/natural", async (req: Request, res: Response) => {
     // Extract metadata using LLM (no location extraction)
     console.log(`🔍 Extracting metadata from query: "${query}"`);
     const extractedMetadata = await extractSearchMetadata(query);
-    console.log('🔍 Extracted metadata:', JSON.stringify(extractedMetadata, null, 2));
+    console.log(
+      "🔍 Extracted metadata:",
+      JSON.stringify(extractedMetadata, null, 2)
+    );
 
     let searchResults;
-    let searchCenter: { location: string; coordinates: [number, number]; search_radius_km: number; } | undefined;
+    let searchCenter:
+      | {
+          location: string;
+          coordinates: [number, number];
+          search_radius_km: number;
+        }
+      | undefined;
 
     // Check if location data was provided by user
     if (locationInfo) {
       console.log(`🌍 Location-based search for: ${locationInfo.place_name}`);
-      
+
       // Perform location-based search using provided Mapbox data
       const products = await locationService.searchProductsWithinRadius(
         locationInfo.latitude,
         locationInfo.longitude,
-        3, // 3km default radius
+        10, // 3km default radius
         {
           keywords: extractedMetadata.keywords,
           listing_type: extractedMetadata.listing_type,
@@ -597,7 +628,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
           max_price: extractedMetadata.max_price,
           page,
           limit,
-          fallbackQuery: query // Add original query for category mapping
+          fallbackQuery: query, // Add original query for category mapping
         }
       );
 
@@ -610,7 +641,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
           listing_type: extractedMetadata.listing_type,
           min_price: extractedMetadata.min_price,
           max_price: extractedMetadata.max_price,
-          fallbackQuery: query // Add original query for category mapping
+          fallbackQuery: query, // Add original query for category mapping
         }
       );
 
@@ -618,19 +649,24 @@ router.post("/search/natural", async (req: Request, res: Response) => {
         products: await addImagesToProducts(products),
         total,
         page,
-        limit
+        limit,
       };
 
       searchCenter = {
         location: locationInfo.place_name,
-        coordinates: [locationInfo.longitude, locationInfo.latitude] as [number, number],
-        search_radius_km: 3
+        coordinates: [locationInfo.longitude, locationInfo.latitude] as [
+          number,
+          number
+        ],
+        search_radius_km: 3,
       };
 
-      console.log(`🌍 Found ${total} results within 3km of ${locationInfo.place_name}`);
+      console.log(
+        `🌍 Found ${total} results within 3km of ${locationInfo.place_name}`
+      );
     } else {
       // Regular search without location
-      console.log('🔍 Regular search without location');
+      console.log("🔍 Regular search without location");
       searchResults = await executeSearchQuery(extractedMetadata, page, limit);
     }
 
@@ -640,17 +676,16 @@ router.post("/search/natural", async (req: Request, res: Response) => {
       total: searchResults.total,
       page: searchResults.page,
       limit: searchResults.limit,
-      totalPages: Math.ceil(searchResults.total / searchResults.limit)
+      totalPages: Math.ceil(searchResults.total / searchResults.limit),
     });
-
   } catch (error) {
     console.error("Natural language search error:", error);
-    
+
     // Check if it's an LLM API error
-    if (error instanceof Error && error.message.includes('API')) {
-      return res.status(503).json({ 
+    if (error instanceof Error && error.message.includes("API")) {
+      return res.status(503).json({
         error: "Search service temporarily unavailable",
-        details: "LLM service error"
+        details: "LLM service error",
       });
     }
 
@@ -664,20 +699,20 @@ router.post("/enrich-tags", async (req: Request, res: Response) => {
     const { title, description, price } = req.body;
 
     if (!title || !description || price === undefined) {
-      return res.status(400).json({ 
-        error: "title, description, and price are required" 
+      return res.status(400).json({
+        error: "title, description, and price are required",
       });
     }
 
-    if (typeof title !== 'string' || typeof description !== 'string') {
-      return res.status(400).json({ 
-        error: "title and description must be strings" 
+    if (typeof title !== "string" || typeof description !== "string") {
+      return res.status(400).json({
+        error: "title and description must be strings",
       });
     }
 
-    if (typeof price !== 'number' || price < 0) {
-      return res.status(400).json({ 
-        error: "price must be a positive number" 
+    if (typeof price !== "number" || price < 0) {
+      return res.status(400).json({
+        error: "price must be a positive number",
       });
     }
 
@@ -687,17 +722,16 @@ router.post("/enrich-tags", async (req: Request, res: Response) => {
 
     res.json({
       enriched_tags: enrichedTags,
-      count: enrichedTags.length
+      count: enrichedTags.length,
     });
-
   } catch (error) {
     console.error("Tag enrichment error:", error);
-    
+
     // Check if it's an LLM API error
-    if (error instanceof Error && error.message.includes('API')) {
-      return res.status(503).json({ 
+    if (error instanceof Error && error.message.includes("API")) {
+      return res.status(503).json({
         error: "Tag enrichment service temporarily unavailable",
-        details: "LLM service error"
+        details: "LLM service error",
       });
     }
 
@@ -711,14 +745,14 @@ router.post("/preview-cleaning", async (req: Request, res: Response) => {
     const { title, description } = req.body;
 
     if (!title) {
-      return res.status(400).json({ 
-        error: "title is required" 
+      return res.status(400).json({
+        error: "title is required",
       });
     }
 
-    if (typeof title !== 'string') {
-      return res.status(400).json({ 
-        error: "title must be a string" 
+    if (typeof title !== "string") {
+      return res.status(400).json({
+        error: "title must be a string",
       });
     }
 
@@ -729,14 +763,14 @@ router.post("/preview-cleaning", async (req: Request, res: Response) => {
     res.json({
       preview: {
         ...preview,
-        note: "Only title will be cleaned. Description preserved exactly as entered."
+        note: "Only title will be cleaned. Description preserved exactly as entered.",
       },
       content: {
-        title: title.substring(0, 100) + (title.length > 100 ? '...' : ''),
-        description_note: "Description will be preserved with original formatting (emojis, paragraphs, etc.)"
-      }
+        title: title.substring(0, 100) + (title.length > 100 ? "..." : ""),
+        description_note:
+          "Description will be preserved with original formatting (emojis, paragraphs, etc.)",
+      },
     });
-
   } catch (error) {
     console.error("Title cleaning preview error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -749,46 +783,50 @@ router.post("/clean-content", async (req: Request, res: Response) => {
     const { title, description } = req.body;
 
     if (!title) {
-      return res.status(400).json({ 
-        error: "title is required" 
+      return res.status(400).json({
+        error: "title is required",
       });
     }
 
-    if (typeof title !== 'string') {
-      return res.status(400).json({ 
-        error: "title must be a string" 
+    if (typeof title !== "string") {
+      return res.status(400).json({
+        error: "title must be a string",
       });
     }
 
     if (title.length > 500) {
-      return res.status(400).json({ 
-        error: "title too long (max 500 characters)" 
+      return res.status(400).json({
+        error: "title too long (max 500 characters)",
       });
     }
 
     // Description is optional and will be preserved as-is if provided
     const preservedDescription = description || "";
 
-    console.log(`Manual title cleaning requested for: "${title.substring(0, 50)}..."`);
-    const cleaningResult = await cleanProductContent(title, preservedDescription);
+    console.log(
+      `Manual title cleaning requested for: "${title.substring(0, 50)}..."`
+    );
+    const cleaningResult = await cleanProductContent(
+      title,
+      preservedDescription
+    );
 
     res.json({
       success: true,
       result: {
         ...cleaningResult,
-        note: "Only title is cleaned. Description preserved exactly as entered."
+        note: "Only title is cleaned. Description preserved exactly as entered.",
       },
-      cost_estimate: cleaningResult.cost_saved ? 0 : 0.001 // rough estimate
+      cost_estimate: cleaningResult.cost_saved ? 0 : 0.001, // rough estimate
     });
-
   } catch (error) {
     console.error("Manual title cleaning error:", error);
-    
+
     // Check if it's an LLM API error
-    if (error instanceof Error && error.message.includes('API')) {
-      return res.status(503).json({ 
+    if (error instanceof Error && error.message.includes("API")) {
+      return res.status(503).json({
         error: "Title cleaning service temporarily unavailable",
-        details: "LLM service error"
+        details: "LLM service error",
       });
     }
 
@@ -800,27 +838,26 @@ router.post("/clean-content", async (req: Request, res: Response) => {
 router.post("/debug-search", async (req: Request, res: Response) => {
   try {
     const { testQuery } = req.body;
-    
+
     if (!testQuery) {
       return res.status(400).json({ error: "testQuery is required" });
     }
-    
-    console.log('🔧 Debug: Testing direct SQL query');
-    console.log('Query:', testQuery);
-    
+
+    console.log("🔧 Debug: Testing direct SQL query");
+    console.log("Query:", testQuery);
+
     const result = await pool.query(testQuery);
-    
+
     res.json({
       success: true,
       rowCount: result.rows.length,
-      rows: result.rows
+      rows: result.rows,
     });
-    
   } catch (error) {
     console.error("Debug search error:", error);
-    res.status(500).json({ 
-      error: "Query failed", 
-      details: error instanceof Error ? error.message : 'Unknown error'
+    res.status(500).json({
+      error: "Query failed",
+      details: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -832,18 +869,19 @@ router.put("/:id/status", async (req: Request, res: Response) => {
     const { status, reason } = req.body;
 
     // Validate status
-    if (!status || !['active', 'sold', 'expired', 'removed'].includes(status)) {
+    if (!status || !["active", "sold", "expired", "removed"].includes(status)) {
       return res.status(400).json({
-        error: 'Valid status required: active, sold, expired, or removed'
+        error: "Valid status required: active, sold, expired, or removed",
       });
     }
 
     // Check if product exists
-    const checkQuery = 'SELECT id, status, seller_id, title FROM products WHERE id = $1';
+    const checkQuery =
+      "SELECT id, status, seller_id, title FROM products WHERE id = $1";
     const checkResult = await pool.query(checkQuery, [id]);
-    
+
     if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: "Product not found" });
     }
 
     const product = checkResult.rows[0];
@@ -852,8 +890,8 @@ router.put("/:id/status", async (req: Request, res: Response) => {
     // Only update if status actually changed
     if (oldStatus === status) {
       return res.json({
-        message: 'Product status unchanged',
-        product: { id, status, title: product.title }
+        message: "Product status unchanged",
+        product: { id, status, title: product.title },
       });
     }
 
@@ -866,29 +904,28 @@ router.put("/:id/status", async (req: Request, res: Response) => {
       WHERE id = $2 
       RETURNING *
     `;
-    
+
     const updateResult = await pool.query(updateQuery, [status, id]);
     const updatedProduct = updateResult.rows[0];
 
     // Update related matches asynchronously
-    updateRelatedMatches(id, status as any, reason).catch(error => {
-      console.error('Error updating related matches:', error);
+    updateRelatedMatches(id, status as any, reason).catch((error) => {
+      console.error("Error updating related matches:", error);
     });
 
     res.json({
-      message: 'Product status updated successfully',
+      message: "Product status updated successfully",
       product: {
         id: updatedProduct.id,
         title: updatedProduct.title,
         status: updatedProduct.status,
         previous_status: oldStatus,
-        updated_at: updatedProduct.updated_at
-      }
+        updated_at: updatedProduct.updated_at,
+      },
     });
-
   } catch (error) {
-    console.error('Error updating product status:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error updating product status:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
