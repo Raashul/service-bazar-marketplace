@@ -30,11 +30,27 @@ import {
   getCleaningPreview,
 } from "../services/contentCleaningService";
 import locationService from "../services/locationService";
+import { verifyAccessToken } from "../utils/jwt";
 
 const router = Router();
 
 router.post("/", async (req: Request, res: Response) => {
   try {
+    // Extract seller_id from authentication token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Authorization token required" });
+    }
+
+    const token = authHeader.substring(7);
+    let seller_id: string;
+    try {
+      const decoded = verifyAccessToken(token);
+      seller_id = decoded.userId;
+    } catch (error) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
     const {
       title,
       description,
@@ -44,14 +60,11 @@ router.post("/", async (req: Request, res: Response) => {
       subcategory = "",
       subsubcategory = "",
       condition,
-      location,
-      location_data, // New Mapbox location data
+      location_data, // Mapbox location data
       listing_type = "product",
       is_negotiable = true,
       expires_in_days = 30,
-    }: CreateProductRequest & { seller_id: string } = req.body;
-
-    const seller_id = req.body.seller_id;
+    }: CreateProductRequest = req.body;
 
     // For services, condition should default to 'new' if not provided
     const finalCondition =
@@ -62,13 +75,11 @@ router.post("/", async (req: Request, res: Response) => {
       !description ||
       !price ||
       !category ||
-      (listing_type === "product" && !condition) ||
-      !location ||
-      !seller_id
+      (listing_type === "product" && !condition)
     ) {
       return res.status(400).json({
         error:
-          "Required fields: title, description, price, category, condition, location, seller_id",
+          "Required fields: title, description, price, category, condition",
       });
     }
 
@@ -105,7 +116,7 @@ router.post("/", async (req: Request, res: Response) => {
       seller_id,
     ]);
     if (userCheck.rows.length === 0) {
-      return res.status(400).json({ error: "Invalid seller_id" });
+      return res.status(401).json({ error: "User not found" });
     }
 
     const expiresAt = new Date();
@@ -146,10 +157,10 @@ router.post("/", async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `
-      INSERT INTO products 
-      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, location, listing_type, enriched_tags, is_negotiable, expires_at, 
+      INSERT INTO products
+      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, listing_type, enriched_tags, is_negotiable, expires_at,
        mapbox_id, full_address, latitude, longitude, place_name, district, region, country, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
       RETURNING *
     `,
       [
@@ -162,7 +173,6 @@ router.post("/", async (req: Request, res: Response) => {
         subcategory,
         subsubcategory,
         finalCondition,
-        location,
         listing_type,
         enrichedTags,
         is_negotiable,
@@ -236,7 +246,6 @@ router.get("/", async (req: Request, res: Response) => {
       min_price,
       max_price,
       condition,
-      location,
       search,
       status = "active",
       page = 1,
@@ -286,12 +295,6 @@ router.get("/", async (req: Request, res: Response) => {
       paramCount++;
       query += ` AND p.condition = $${paramCount}`;
       queryParams.push(condition);
-    }
-
-    if (location) {
-      paramCount++;
-      query += ` AND p.location ILIKE $${paramCount}`;
-      queryParams.push(`%${location}%`);
     }
 
     if (search) {
@@ -380,7 +383,6 @@ router.put("/:id", async (req: Request, res: Response) => {
       subcategory,
       subsubcategory,
       condition,
-      location,
       is_negotiable,
       expires_in_days,
     }: UpdateProductRequest & { seller_id: number } = req.body;
@@ -479,11 +481,6 @@ router.put("/:id", async (req: Request, res: Response) => {
       paramCount++;
       updateFields.push(`condition = $${paramCount}`);
       updateValues.push(condition);
-    }
-    if (location !== undefined) {
-      paramCount++;
-      updateFields.push(`location = $${paramCount}`);
-      updateValues.push(location);
     }
     if (is_negotiable !== undefined) {
       paramCount++;
@@ -667,7 +664,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
     } else {
       // Regular search without location
       console.log("🔍 Regular search without location");
-      searchResults = await executeSearchQuery(extractedMetadata, page, limit);
+      searchResults = await executeSearchQuery(extractedMetadata, page, limit, query);
     }
 
     // Simplified response with only products and pagination

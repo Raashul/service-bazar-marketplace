@@ -287,13 +287,15 @@ export const buildSearchQuery = (
 export const executeSearchQuery = async (
   metadata: SearchMetadata,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  fallbackQuery?: string
 ) => {
   try {
     const { query, countQuery, params, allParams } = buildSearchQuery(
       metadata,
       page,
-      limit
+      limit,
+      fallbackQuery
     );
 
     // Execute both queries in parallel
