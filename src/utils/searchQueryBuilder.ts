@@ -28,18 +28,22 @@ export const buildSearchQuery = (
   };
 
   // Text search in title, description, and enriched_tags
+  // When keywords are present, use them for search and skip restrictive category/subcategory filters
+  let hasKeywordSearch = false;
+
   if (metadata.keywords && metadata.keywords.length > 0) {
+    hasKeywordSearch = true;
     const keywordConditions: string[] = [];
 
     metadata.keywords.forEach((keyword) => {
       builder.paramCount++;
       keywordConditions.push(`(
-        p.title ILIKE $${builder.paramCount} OR 
+        p.title ILIKE $${builder.paramCount} OR
         p.description ILIKE $${builder.paramCount} OR
         p.category ILIKE $${builder.paramCount} OR
         p.subcategory ILIKE $${builder.paramCount} OR
         EXISTS (
-          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
+          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag
           WHERE enriched_tag ILIKE $${builder.paramCount}
         )
       )`);
@@ -51,10 +55,10 @@ export const buildSearchQuery = (
       const categoryMappings = mapQueryToCategories(fallbackQuery.trim());
       if (categoryMappings.length > 0) {
         const { conditions, params, newParamCount } = buildCategorySearchConditions(
-          categoryMappings, 
+          categoryMappings,
           builder.paramCount
         );
-        
+
         if (conditions.length > 0) {
           keywordConditions.push(...conditions);
           builder.queryParams.push(...params);
@@ -68,6 +72,7 @@ export const buildSearchQuery = (
       builder.whereConditions.push(`(${keywordConditions.join(" OR ")})`);
     }
   } else if (fallbackQuery && fallbackQuery.trim().length > 0) {
+    hasKeywordSearch = true;
     // Fallback search when no keywords are extracted
     console.log('🔄 Using fallback search for:', fallbackQuery.trim());
     
@@ -127,74 +132,79 @@ export const buildSearchQuery = (
     builder.queryParams.push(metadata.max_price);
   }
 
-  // Currency filter
-  if (metadata.currency) {
-    builder.paramCount++;
-    builder.whereConditions.push(`p.currency = $${builder.paramCount}`);
-    builder.queryParams.push(metadata.currency);
-  }
+  // Currency filter - disabled as it's too restrictive
+  // LLM defaults to USD which would filter out products with other currencies
+  // if (metadata.currency) {
+  //   builder.paramCount++;
+  //   builder.whereConditions.push(`p.currency = $${builder.paramCount}`);
+  //   builder.queryParams.push(metadata.currency);
+  // }
 
-  // Category filters - make more flexible for generic searches
-  if (metadata.category) {
-    builder.paramCount++;
-    builder.whereConditions.push(`(
-      p.category ILIKE $${builder.paramCount} OR
-      p.subcategory ILIKE $${builder.paramCount} OR
-      EXISTS (
-        SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
-        WHERE enriched_tag ILIKE $${builder.paramCount}
-      )
-    )`);
-    builder.queryParams.push(`%${metadata.category}%`);
-  }
+  // Skip category/subcategory/features filters when keywords are present
+  // Keywords already search in category, subcategory, and enriched_tags
+  // Adding these as additional AND conditions makes the search too restrictive
+  if (!hasKeywordSearch) {
+    // Category filters - only apply when no keyword search
+    if (metadata.category) {
+      builder.paramCount++;
+      builder.whereConditions.push(`(
+        p.category ILIKE $${builder.paramCount} OR
+        p.subcategory ILIKE $${builder.paramCount} OR
+        EXISTS (
+          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag
+          WHERE enriched_tag ILIKE $${builder.paramCount}
+        )
+      )`);
+      builder.queryParams.push(`%${metadata.category}%`);
+    }
 
-  // Subcategory search - make this optional since enriched tags handle semantic matching
-  if (metadata.subcategory) {
-    builder.paramCount++;
-    // Use OR condition to not be too restrictive
-    builder.whereConditions.push(`(
-      p.subcategory ILIKE $${builder.paramCount} OR 
-      EXISTS (
-        SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
-        WHERE enriched_tag ILIKE $${builder.paramCount}
-      )
-    )`);
-    builder.queryParams.push(`%${metadata.subcategory}%`);
-  }
+    // Subcategory search - only apply when no keyword search
+    if (metadata.subcategory) {
+      builder.paramCount++;
+      builder.whereConditions.push(`(
+        p.subcategory ILIKE $${builder.paramCount} OR
+        EXISTS (
+          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag
+          WHERE enriched_tag ILIKE $${builder.paramCount}
+        )
+      )`);
+      builder.queryParams.push(`%${metadata.subcategory}%`);
+    }
 
-  if (metadata.subsubcategory) {
-    builder.paramCount++;
-    builder.whereConditions.push(
-      `p.subsubcategory ILIKE $${builder.paramCount}`
-    );
-    builder.queryParams.push(`%${metadata.subsubcategory}%`);
+    if (metadata.subsubcategory) {
+      builder.paramCount++;
+      builder.whereConditions.push(
+        `p.subsubcategory ILIKE $${builder.paramCount}`
+      );
+      builder.queryParams.push(`%${metadata.subsubcategory}%`);
+    }
+
+    // Features search - only apply when no keyword search
+    if (metadata.features && metadata.features.length > 0) {
+      const featureConditions: string[] = [];
+
+      metadata.features.forEach((feature) => {
+        builder.paramCount++;
+        featureConditions.push(`(
+          p.description ILIKE $${builder.paramCount} OR
+          EXISTS (
+            SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag
+            WHERE enriched_tag ILIKE $${builder.paramCount}
+          )
+        )`);
+        builder.queryParams.push(`%${feature}%`);
+      });
+
+      if (featureConditions.length > 0) {
+        builder.whereConditions.push(`(${featureConditions.join(" OR ")})`);
+      }
+    }
   }
 
   // Condition filter removed - not useful for search matching
 
   // Location filtering is now handled separately via locationService
   // when location_data is provided in the search request
-
-  // Features search in enriched_tags and description
-  if (metadata.features && metadata.features.length > 0) {
-    const featureConditions: string[] = [];
-
-    metadata.features.forEach((feature) => {
-      builder.paramCount++;
-      featureConditions.push(`(
-        p.description ILIKE $${builder.paramCount} OR
-        EXISTS (
-          SELECT 1 FROM unnest(p.enriched_tags) as enriched_tag 
-          WHERE enriched_tag ILIKE $${builder.paramCount}
-        )
-      )`);
-      builder.queryParams.push(`%${feature}%`);
-    });
-
-    if (featureConditions.length > 0) {
-      builder.whereConditions.push(`(${featureConditions.join(" OR ")})`);
-    }
-  }
 
   // Service-specific searches (search in enriched_tags and description)
   if (metadata.service_type) {
