@@ -24,7 +24,6 @@ export interface ProductSnapshot {
   subcategory: string;
   subsubcategory?: string;
   condition: string;
-  location: string;
   listing_type: 'product' | 'service';
   enriched_tags: string[];
   is_negotiable: boolean;

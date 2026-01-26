@@ -5,7 +5,8 @@
       "Bash(curl:*)",
       "Bash(chmod:*)",
       "Bash(grep:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

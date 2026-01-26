@@ -326,7 +326,6 @@ async function createProductSnapshot(product: Product): Promise<ProductSnapshot>
       subcategory: product.subcategory,
       subsubcategory: product.subsubcategory,
       condition: product.condition,
-      location: product.location,
       listing_type: product.listing_type,
       enriched_tags: product.enriched_tags,
       is_negotiable: product.is_negotiable,

@@ -19,7 +19,6 @@ export interface Product {
     subcategory: string;
     subsubcategory: string;
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-    location: string;
     listing_type: 'product' | 'service';
     enriched_tags: string[];
     is_negotiable: boolean;
@@ -56,7 +55,6 @@ export interface CreateProductRequest {
     subcategory?: string;
     subsubcategory?: string;
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-    location: string;
     location_data?: LocationInfo;
     listing_type?: 'product' | 'service';
     is_negotiable?: boolean;
@@ -71,7 +69,6 @@ export interface UpdateProductRequest {
     subcategory?: string;
     subsubcategory?: string;
     condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-    location?: string;
     listing_type?: 'product' | 'service';
     is_negotiable?: boolean;
     expires_in_days?: number;
@@ -83,7 +80,6 @@ export interface ProductSearchQuery {
     min_price?: number;
     max_price?: number;
     condition?: string;
-    location?: string;
     search?: string;
     status?: 'active' | 'sold' | 'expired';
     page?: number;
