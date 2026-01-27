@@ -230,6 +230,53 @@ Content-Type: application/json
 
 ### Products Endpoints
 
+#### Get Home Page Products (Featured + Recent)
+
+```
+GET /products/home?featured_limit=10&recent_limit=20
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| featured_limit | number | 10 | Max featured products to return |
+| recent_limit | number | 20 | Max recent products to return |
+
+**Success Response (200):**
+```json
+{
+  "featured": [
+    {
+      "id": "uuid",
+      "title": "Premium iPhone 15 Pro",
+      "description": "...",
+      "price": 999.99,
+      "is_featured": true,
+      "seller_name": "John Doe",
+      "product_images": [...]
+    }
+  ],
+  "recent": [
+    {
+      "id": "uuid",
+      "title": "MacBook Pro M2",
+      "description": "...",
+      "price": 1299.99,
+      "is_featured": false,
+      "seller_name": "Jane Smith",
+      "product_images": [...]
+    }
+  ]
+}
+```
+
+**Notes:**
+- Both lists only include active products that haven't expired
+- Products are ordered by `created_at DESC`
+- Includes seller info and product images
+
+---
+
 #### Get Product Categories
 
 ```
@@ -274,12 +321,12 @@ GET /products/categories
 ```
 POST /products
 Content-Type: application/json
+Authorization: Bearer <access_token>
 ```
 
 **Request Body:**
 ```typescript
 {
-  seller_id: string;              // UUID - Required
   title: string;                  // Required, max 255 chars
   description: string;            // Required
   price: number;                  // Required, decimal
@@ -288,7 +335,6 @@ Content-Type: application/json
   subcategory?: string;
   subsubcategory?: string;
   condition: "new" | "like_new" | "good" | "fair" | "poor";  // Required
-  location?: string;              // Legacy field
   location_data?: {               // Structured location from Mapbox
     mapbox_id?: string;
     full_address: string;
@@ -300,9 +346,13 @@ Content-Type: application/json
     country: string;
   };
   listing_type?: "product" | "service";  // Default: "product"
+  is_featured?: boolean;          // Default: false
   is_negotiable?: boolean;        // Default: true
   expires_in_days?: number;       // Default: 30
 }
+```
+
+**Note:** `seller_id` is automatically extracted from the Authorization token.
 ```
 
 **Success Response (201):**
@@ -1461,12 +1511,13 @@ interface Product {
   subcategory: string | null;
   subsubcategory: string | null;
   condition: "new" | "like_new" | "good" | "fair" | "poor";
-  location: string;
   listing_type: "product" | "service";
+  is_featured: boolean;
   enriched_tags: string[];
   is_negotiable: boolean;
   status: "active" | "sold" | "expired" | "removed";
   preview_image_id: string | null;
+  image_count: number;
   expires_at: Date;
   // Mapbox location fields
   mapbox_id: string | null;

@@ -20,6 +20,7 @@ export interface Product {
     subsubcategory: string;
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     listing_type: 'product' | 'service';
+    is_featured: boolean;
     enriched_tags: string[];
     is_negotiable: boolean;
     expires_at: Date;
@@ -57,6 +58,7 @@ export interface CreateProductRequest {
     condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
     location_data?: LocationInfo;
     listing_type?: 'product' | 'service';
+    is_featured?: boolean;
     is_negotiable?: boolean;
     expires_in_days?: number;
 }

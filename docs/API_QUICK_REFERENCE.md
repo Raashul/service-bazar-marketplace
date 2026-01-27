@@ -19,6 +19,7 @@
 
 | Action | Method | Endpoint |
 |--------|--------|----------|
+| Home (featured + recent) | GET | `/products/home?featured_limit=10&recent_limit=20` |
 | List (filtered) | GET | `/products?category=X&min_price=N&status=active` |
 | Get one | GET | `/products/:id` |
 | Create | POST | `/products` |
@@ -31,16 +32,17 @@
 **Create Product Body:**
 ```json
 {
-  "seller_id": "uuid",
   "title": "string",
   "description": "string",
   "price": 100.00,
   "category": "Electronics",
   "subcategory": "CellPhone & Accessories",
   "condition": "good",
+  "is_featured": false,
   "location_data": { "latitude": 38.8, "longitude": -77.1, ... }
 }
 ```
+*Note: `seller_id` extracted from Authorization token*
 
 **Conditions:** `new`, `like_new`, `good`, `fair`, `poor`
 

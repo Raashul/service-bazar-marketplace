@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS products (
     subsubcategory VARCHAR(100) DEFAULT '',
     condition VARCHAR(20) CHECK (condition IN ('new', 'like_new', 'good', 'fair', 'poor')),
     listing_type VARCHAR(20) DEFAULT 'product' CHECK (listing_type IN ('product', 'service')),
+    is_featured BOOLEAN DEFAULT false,
     images TEXT[],
     enriched_tags TEXT[],
     is_negotiable BOOLEAN DEFAULT true,

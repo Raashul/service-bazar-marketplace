@@ -33,7 +33,7 @@ router.post("/", async (req, res) => {
             return res.status(401).json({ error: "Invalid or expired token" });
         }
         const { title, description, price, currency = "USD", category, subcategory = "", subsubcategory = "", condition, location_data, // Mapbox location data
-        listing_type = "product", is_negotiable = true, expires_in_days = 30, } = req.body;
+        listing_type = "product", is_featured = false, is_negotiable = true, expires_in_days = 30, } = req.body;
         // For services, condition should default to 'new' if not provided
         const finalCondition = listing_type === "service" && !condition ? "new" : condition;
         if (!title ||
@@ -102,9 +102,9 @@ router.post("/", async (req, res) => {
         console.log("Generated enriched tags:", enrichedTags);
         const result = await database_1.pool.query(`
       INSERT INTO products
-      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, listing_type, enriched_tags, is_negotiable, expires_at,
+      (seller_id, title, description, price, currency, category, subcategory, subsubcategory, condition, listing_type, is_featured, enriched_tags, is_negotiable, expires_at,
        mapbox_id, full_address, latitude, longitude, place_name, district, region, country, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW(), NOW())
       RETURNING *
     `, [
             seller_id,
@@ -117,6 +117,7 @@ router.post("/", async (req, res) => {
             subsubcategory,
             finalCondition,
             listing_type,
+            is_featured,
             enrichedTags,
             is_negotiable,
             expiresAt,
@@ -173,6 +174,45 @@ router.get("/categories", async (req, res) => {
     }
     catch (error) {
         console.error("Get categories error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+router.get("/home", async (req, res) => {
+    try {
+        const { featured_limit = 10, recent_limit = 20 } = req.query;
+        // Get featured products
+        const featuredQuery = `
+      SELECT p.*, u.name as seller_name, u.phone as seller_phone
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = 'active'
+        AND p.expires_at > NOW()
+        AND p.is_featured = true
+      ORDER BY p.created_at DESC
+      LIMIT $1
+    `;
+        const featuredResult = await database_1.pool.query(featuredQuery, [Number(featured_limit)]);
+        // Get recent products (excluding featured to avoid duplicates)
+        const recentQuery = `
+      SELECT p.*, u.name as seller_name, u.phone as seller_phone
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = 'active'
+        AND p.expires_at > NOW()
+      ORDER BY p.created_at DESC
+      LIMIT $1
+    `;
+        const recentResult = await database_1.pool.query(recentQuery, [Number(recent_limit)]);
+        // Add images to products
+        const featuredWithImages = await (0, productImages_1.addImagesToProducts)(featuredResult.rows);
+        const recentWithImages = await (0, productImages_1.addImagesToProducts)(recentResult.rows);
+        res.json({
+            featured: featuredWithImages,
+            recent: recentWithImages,
+        });
+    }
+    catch (error) {
+        console.error("Get home products error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
