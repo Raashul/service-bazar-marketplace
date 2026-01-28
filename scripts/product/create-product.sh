@@ -1,81 +1,73 @@
-curl --location 'http://localhost:3000/api/products' \
+#!/bin/bash
+
+# Script to create a product and upload images
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_URL="http://localhost:3000/api"
+
+echo "Creating product: 2015 Toyota Camry SE Sport Sedan 4D"
+
+# Create the product and capture the response
+RESPONSE=$(curl --location "${BASE_URL}/products" \
 --header 'Content-Type: application/json' \
 --data '{
-    "title": "iphone 13 max 256 gb",
-    "description": "Iphone 13 Like brand new condition. No any issues. All parts are original. Ime mathcing box. Bh 87%",
-    "price": 800,
-    "currency": "USD",
-    "category": "Electronics",
-    "subcategory": "CellPhone & Accessories",
-    "condition": "new",
-    "location": "Arlington, VA",
-    "location_data": {
-       "mapbox_id": "dXJuOm1ieHBsYzpGSmlvN0E",
-        "full_address": "District of Columbia, United States",
-        "latitude": 38.90253,
-        "longitude": -77.039386,
-        "place_name": "Washington",
-        "region": "District of Columbia",
-        "country": "United States"
-    },
-    "listing_type": "product",
-    "is_negotiable": true,
-    "expires_in_days": 30,
-    "seller_id": "b212486e-6749-447c-86f6-30c22d2432e1"
-}' --silent && echo "Successfully created product: iphone 13 max 256 gb"
-
-
-curl --location 'http://localhost:3000/api/products' \
---header 'Content-Type: application/json' \
---data '{
-    "title": "1 Bedroom Apartment for Rent - Arlington, VA",
-    "description": "Spacious 1 bedroom apartment available for rent in Arlington, VA for $2,000/month. Conveniently located with easy access to DC metro area. Perfect for professionals or students looking for comfortable living space in a desirable location. Contact for viewing and additional details about amenities, lease terms, and move-in requirements.",
-    "price": 2000,
-    "currency": "USD",
-    "category": "RealEstate",
-    "subcategory": "ForRent",
-    "condition": "new",
-    "location": "Arlington, VA",
-    "location_data": {
-       "mapbox_id": "dXJuOm1ieHBsYzpxV2pz",
-        "full_address": "Virginia, United States",
-        "latitude": 38.888414,
-        "longitude": -77.091601,
-        "place_name": "Arlington",
-        "district": "Arlington County",
-        "region": "Virginia",
-        "country": "United States"
-    },
-    "listing_type": "product",
-    "is_negotiable": true,
-    "expires_in_days": 30,
-    "seller_id": "b212486e-6749-447c-86f6-30c22d2432e1"
-}' --silent && echo "Successfully created product: 1 Bedroom Apartment for Rent - Arlington, VA"
-
-
-curl --location 'http://localhost:3000/api/products' \
---header 'Content-Type: application/json' \
---data '{
-    "title": "2015 Toyota corolla S Plus Sedan 4D",
-    "description": "Im selling a beautiful Toyota Corolla with only 85 thousand miles everything works perfectly the engine and transmission is impeccable the title is rebuild the price is negotiable only serious buyers thanks I do not accept offers",
-    "price": 13000,
+    "seller_id": "00000000-0000-0000-0000-000000000001",
+    "title": "2015 Toyota camry SE Sport Sedan 4D",
+    "description": "rebuilt title! \n91k miles\nadded led headlights\nreplaced front bumper & right side fender \n20% tint all around & sun strip for windshield \nno engine issues \nno leaks\n\nradio needs to be fixed  \ntire pressure sensor needs to be replaced\nfront axle bearing needs to be replaced\n \nText me if interested! looking for real buyers! also looking to sell asap",
+    "price": 5000,
     "currency": "USD",
     "category": "Vehicles",
-    "subcategory": "",
-    "condition": "new",
-    "location": "Arlington, VA",
+    "subcategory": "Car",
+    "subsubcategory": null,
+    "condition": "good",
+    "is_negotiable": true,
+    "listing_type": "product",
     "location_data": {
-       "mapbox_id": "dXJuOm1ieHBsYzpxV2pz",
-        "full_address": "Virginia, United States",
+        "mapbox_id": "dXJuOm1ieHBsYzpxV2pz",
+        "full_address": "Arlington, Virginia, United States",
         "latitude": 38.888414,
         "longitude": -77.091601,
         "place_name": "Arlington",
         "district": "Arlington County",
         "region": "Virginia",
         "country": "United States"
-    },
-    "listing_type": "product",
-    "is_negotiable": true,
-    "expires_in_days": 30,
-    "seller_id": "b212486e-6749-447c-86f6-30c22d2432e1"
-}' --silent && echo "Successfully created product: 2015 Toyota corolla S Plus Sedan 4D"
+    }
+}' --silent)
+
+echo "Create product response:"
+echo "$RESPONSE" | jq .
+
+# Extract product ID from response
+PRODUCT_ID=$(echo "$RESPONSE" | jq -r '.product.id')
+
+if [ "$PRODUCT_ID" == "null" ] || [ -z "$PRODUCT_ID" ]; then
+    echo "Error: Failed to create product or extract product ID"
+    exit 1
+fi
+
+echo ""
+echo "Product created with ID: $PRODUCT_ID"
+echo ""
+
+# Upload images
+echo "Uploading images for product..."
+
+IMAGES_DIR="${SCRIPT_DIR}/images/product1"
+
+if [ ! -d "$IMAGES_DIR" ]; then
+    echo "Error: Images directory not found: $IMAGES_DIR"
+    exit 1
+fi
+
+# Build the curl command with all images
+UPLOAD_RESPONSE=$(curl --location "${BASE_URL}/images/upload-multiple" \
+    --form "product_id=${PRODUCT_ID}" \
+    --form "images=@${IMAGES_DIR}/camry 1.jpg" \
+    --form "images=@${IMAGES_DIR}/camry2.jpg" \
+    --silent)
+
+echo "Upload images response:"
+echo "$UPLOAD_RESPONSE" | jq .
+
+echo ""
+echo "Done!"
