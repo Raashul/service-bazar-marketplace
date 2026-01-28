@@ -1,3 +1,1 @@
-[] Fix db schema
-[] Deploy to ubuntu server
-[] Make it ssh-able
+[] 

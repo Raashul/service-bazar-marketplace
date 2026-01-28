@@ -332,3 +332,251 @@ export const executeSearchQuery = async (
     throw error;
   }
 };
+
+/**
+ * Search for exact brand/model matches in product titles
+ * Used when user searches for specific brands like "Mercedes", "iPhone 16 Pro"
+ */
+export const executeBrandMatchSearch = async (
+  brands: string[],
+  model: string | undefined,
+  metadata: SearchMetadata,
+  page: number = 1,
+  limit: number = 20
+) => {
+  try {
+    if (brands.length === 0 && !model) {
+      return { products: [], total: 0, page, limit, totalPages: 0 };
+    }
+
+    const queryParams: any[] = ["active"];
+    let paramCount = 1;
+
+    // Build brand/model conditions - search in title
+    const brandConditions: string[] = [];
+
+    // Add brand conditions
+    for (const brand of brands) {
+      paramCount++;
+      brandConditions.push(`p.title ILIKE $${paramCount}`);
+      queryParams.push(`%${brand}%`);
+    }
+
+    // Add model condition if present
+    if (model) {
+      paramCount++;
+      brandConditions.push(`p.title ILIKE $${paramCount}`);
+      queryParams.push(`%${model}%`);
+    }
+
+    const brandClause = brandConditions.length > 0
+      ? `AND (${brandConditions.join(" OR ")})`
+      : "";
+
+    // Add price filters if present
+    let priceClause = "";
+    if (metadata.min_price !== undefined) {
+      paramCount++;
+      priceClause += ` AND p.price >= $${paramCount}`;
+      queryParams.push(metadata.min_price);
+    }
+    if (metadata.max_price !== undefined) {
+      paramCount++;
+      priceClause += ` AND p.price <= $${paramCount}`;
+      queryParams.push(metadata.max_price);
+    }
+
+    // Add listing type filter if present
+    let listingTypeClause = "";
+    if (metadata.listing_type) {
+      paramCount++;
+      listingTypeClause = ` AND p.listing_type = $${paramCount}`;
+      queryParams.push(metadata.listing_type);
+    }
+
+    const offset = (page - 1) * limit;
+    paramCount++;
+    const limitParam = paramCount;
+    queryParams.push(limit);
+    paramCount++;
+    const offsetParam = paramCount;
+    queryParams.push(offset);
+
+    const searchQuery = `
+      SELECT p.*, u.name as seller_name, u.email as seller_email, u.phone as seller_phone
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = $1
+        AND p.expires_at > NOW()
+        ${brandClause}
+        ${priceClause}
+        ${listingTypeClause}
+      ORDER BY p.created_at DESC
+      LIMIT $${limitParam} OFFSET $${offsetParam}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = $1
+        AND p.expires_at > NOW()
+        ${brandClause}
+        ${priceClause}
+        ${listingTypeClause}
+    `;
+
+    console.log("🎯 Brand match search query:", searchQuery);
+    console.log("🎯 Brand match params:", queryParams);
+
+    const [searchResult, countResult] = await Promise.all([
+      pool.query(searchQuery, queryParams),
+      pool.query(countQuery, queryParams.slice(0, -2)),
+    ]);
+
+    const products = searchResult.rows;
+    const total = parseInt(countResult.rows[0].count);
+    const productsWithImages = await addImagesToProducts(products);
+
+    return {
+      products: productsWithImages,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (error) {
+    console.error("Error executing brand match search:", error);
+    throw error;
+  }
+};
+
+/**
+ * Search for related products (same category but different brand)
+ * Excludes products that already matched the brand search
+ */
+export const executeRelatedSearch = async (
+  brands: string[],
+  model: string | undefined,
+  metadata: SearchMetadata,
+  matchedProductIds: string[],
+  page: number = 1,
+  limit: number = 20
+) => {
+  try {
+    const queryParams: any[] = ["active"];
+    let paramCount = 1;
+
+    // Exclude already matched products
+    let excludeClause = "";
+    if (matchedProductIds.length > 0) {
+      paramCount++;
+      excludeClause = ` AND p.id != ALL($${paramCount})`;
+      queryParams.push(matchedProductIds);
+    }
+
+    // Exclude products that match the brand/model in title (to avoid duplicates)
+    const excludeBrandConditions: string[] = [];
+    for (const brand of brands) {
+      paramCount++;
+      excludeBrandConditions.push(`p.title ILIKE $${paramCount}`);
+      queryParams.push(`%${brand}%`);
+    }
+    if (model) {
+      paramCount++;
+      excludeBrandConditions.push(`p.title ILIKE $${paramCount}`);
+      queryParams.push(`%${model}%`);
+    }
+    const excludeBrandClause = excludeBrandConditions.length > 0
+      ? `AND NOT (${excludeBrandConditions.join(" OR ")})`
+      : "";
+
+    // Add category filter to find related products
+    let categoryClause = "";
+    if (metadata.category) {
+      paramCount++;
+      categoryClause = ` AND (p.category ILIKE $${paramCount} OR p.subcategory ILIKE $${paramCount})`;
+      queryParams.push(`%${metadata.category}%`);
+    }
+
+    // Add price filters if present
+    let priceClause = "";
+    if (metadata.min_price !== undefined) {
+      paramCount++;
+      priceClause += ` AND p.price >= $${paramCount}`;
+      queryParams.push(metadata.min_price);
+    }
+    if (metadata.max_price !== undefined) {
+      paramCount++;
+      priceClause += ` AND p.price <= $${paramCount}`;
+      queryParams.push(metadata.max_price);
+    }
+
+    // Add listing type filter if present
+    let listingTypeClause = "";
+    if (metadata.listing_type) {
+      paramCount++;
+      listingTypeClause = ` AND p.listing_type = $${paramCount}`;
+      queryParams.push(metadata.listing_type);
+    }
+
+    const offset = (page - 1) * limit;
+    paramCount++;
+    const limitParam = paramCount;
+    queryParams.push(limit);
+    paramCount++;
+    const offsetParam = paramCount;
+    queryParams.push(offset);
+
+    const searchQuery = `
+      SELECT p.*, u.name as seller_name, u.email as seller_email, u.phone as seller_phone
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = $1
+        AND p.expires_at > NOW()
+        ${excludeClause}
+        ${excludeBrandClause}
+        ${categoryClause}
+        ${priceClause}
+        ${listingTypeClause}
+      ORDER BY p.created_at DESC
+      LIMIT $${limitParam} OFFSET $${offsetParam}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*)
+      FROM products p
+      JOIN users u ON p.seller_id = u.id
+      WHERE p.status = $1
+        AND p.expires_at > NOW()
+        ${excludeClause}
+        ${excludeBrandClause}
+        ${categoryClause}
+        ${priceClause}
+        ${listingTypeClause}
+    `;
+
+    console.log("🔗 Related search query:", searchQuery);
+    console.log("🔗 Related search params:", queryParams);
+
+    const [searchResult, countResult] = await Promise.all([
+      pool.query(searchQuery, queryParams),
+      pool.query(countQuery, queryParams.slice(0, -2)),
+    ]);
+
+    const products = searchResult.rows;
+    const total = parseInt(countResult.rows[0].count);
+    const productsWithImages = await addImagesToProducts(products);
+
+    return {
+      products: productsWithImages,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (error) {
+    console.error("Error executing related search:", error);
+    throw error;
+  }
+};

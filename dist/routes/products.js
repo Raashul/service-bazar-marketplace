@@ -483,58 +483,85 @@ router.post("/search/natural", async (req, res) => {
                 });
             }
         }
-        // Extract metadata using LLM (no location extraction)
+        // Extract metadata using LLM (includes brand/model detection)
         console.log(`🔍 Extracting metadata from query: "${query}"`);
         const extractedMetadata = await (0, llmService_1.extractSearchMetadata)(query);
         console.log("🔍 Extracted metadata:", JSON.stringify(extractedMetadata, null, 2));
-        let searchResults;
-        let searchCenter;
-        // Check if location data was provided by user
-        if (locationInfo) {
-            console.log(`🌍 Location-based search for: ${locationInfo.place_name}`);
-            // Perform location-based search using provided Mapbox data
-            const products = await locationService_1.default.searchProductsWithinRadius(locationInfo.latitude, locationInfo.longitude, 10, // 3km default radius
-            {
-                keywords: extractedMetadata.keywords,
-                listing_type: extractedMetadata.listing_type,
-                min_price: extractedMetadata.min_price,
-                max_price: extractedMetadata.max_price,
-                page,
-                limit,
-                fallbackQuery: query, // Add original query for category mapping
-            });
-            const total = await locationService_1.default.getLocationSearchCount(locationInfo.latitude, locationInfo.longitude, 3, {
-                keywords: extractedMetadata.keywords,
-                listing_type: extractedMetadata.listing_type,
-                min_price: extractedMetadata.min_price,
-                max_price: extractedMetadata.max_price,
-                fallbackQuery: query, // Add original query for category mapping
-            });
-            searchResults = {
-                products: await (0, productImages_1.addImagesToProducts)(products),
-                total,
-                page,
-                limit,
-            };
-            searchCenter = {
-                location: locationInfo.place_name,
-                coordinates: [locationInfo.longitude, locationInfo.latitude],
-                search_radius_km: 3,
-            };
-            console.log(`🌍 Found ${total} results within 3km of ${locationInfo.place_name}`);
+        // Determine if this is a specific brand search or generic search
+        const isSpecificSearch = extractedMetadata.is_specific_search &&
+            ((extractedMetadata.brands && extractedMetadata.brands.length > 0) ||
+                extractedMetadata.model);
+        console.log(`🔍 Search type: ${isSpecificSearch ? "SPECIFIC (brand/model)" : "GENERIC"}`);
+        let matchesResult;
+        let relatedResult;
+        if (isSpecificSearch) {
+            // SPECIFIC SEARCH: Split into matches and related_results
+            const brands = extractedMetadata.brands || [];
+            const model = extractedMetadata.model;
+            console.log(`🎯 Searching for brands: [${brands.join(", ")}], model: ${model || "none"}`);
+            // Get exact brand/model matches
+            matchesResult = await (0, searchQueryBuilder_1.executeBrandMatchSearch)(brands, model, extractedMetadata, page, limit);
+            // Get IDs of matched products to exclude from related results
+            const matchedProductIds = matchesResult.products.map((p) => p.id);
+            // Get related results (same category, different brand)
+            relatedResult = await (0, searchQueryBuilder_1.executeRelatedSearch)(brands, model, extractedMetadata, matchedProductIds, page, limit);
+            console.log(`🎯 Found ${matchesResult.total} matches, ${relatedResult.total} related`);
         }
         else {
-            // Regular search without location
-            console.log("🔍 Regular search without location");
-            searchResults = await (0, searchQueryBuilder_1.executeSearchQuery)(extractedMetadata, page, limit, query);
+            // GENERIC SEARCH: All results go to matches, related_results is empty
+            console.log("🔍 Generic search - all results in matches");
+            if (locationInfo) {
+                // Location-based generic search
+                console.log(`🌍 Location-based search for: ${locationInfo.place_name}`);
+                const products = await locationService_1.default.searchProductsWithinRadius(locationInfo.latitude, locationInfo.longitude, 10, {
+                    keywords: extractedMetadata.keywords,
+                    listing_type: extractedMetadata.listing_type,
+                    min_price: extractedMetadata.min_price,
+                    max_price: extractedMetadata.max_price,
+                    page,
+                    limit,
+                    fallbackQuery: query,
+                });
+                const total = await locationService_1.default.getLocationSearchCount(locationInfo.latitude, locationInfo.longitude, 10, {
+                    keywords: extractedMetadata.keywords,
+                    listing_type: extractedMetadata.listing_type,
+                    min_price: extractedMetadata.min_price,
+                    max_price: extractedMetadata.max_price,
+                    fallbackQuery: query,
+                });
+                matchesResult = {
+                    products: await (0, productImages_1.addImagesToProducts)(products),
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                };
+            }
+            else {
+                // Regular generic search without location
+                matchesResult = await (0, searchQueryBuilder_1.executeSearchQuery)(extractedMetadata, page, limit, query);
+            }
+            // For generic search, related_results is empty
+            relatedResult = {
+                products: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0,
+            };
         }
-        // Simplified response with only products and pagination
+        // Response with matches and related_results
         res.json({
-            products: searchResults.products,
-            total: searchResults.total,
-            page: searchResults.page,
-            limit: searchResults.limit,
-            totalPages: Math.ceil(searchResults.total / searchResults.limit),
+            matches: matchesResult.products,
+            total_matches: matchesResult.total,
+            matches_page: matchesResult.page,
+            matches_limit: matchesResult.limit,
+            matches_total_pages: matchesResult.totalPages || Math.ceil(matchesResult.total / matchesResult.limit),
+            related_results: relatedResult.products,
+            total_related: relatedResult.total,
+            related_page: relatedResult.page,
+            related_limit: relatedResult.limit,
+            related_total_pages: relatedResult.totalPages,
         });
     }
     catch (error) {

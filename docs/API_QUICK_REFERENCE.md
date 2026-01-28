@@ -29,6 +29,36 @@
 | Categories | GET | `/products/categories` |
 | Natural search | POST | `/products/search/natural` |
 
+**Natural Search Request:**
+```json
+{
+  "query": "Mercedes C-Class under $30000",
+  "location_data": { ... },
+  "limit": 20,
+  "page": 1
+}
+```
+
+**Natural Search Response:**
+```json
+{
+  "matches": [...],           // Exact brand/model matches
+  "total_matches": 5,
+  "matches_page": 1,
+  "matches_limit": 20,
+  "matches_total_pages": 1,
+  "related_results": [...],   // Same category, different brand
+  "total_related": 12,
+  "related_page": 1,
+  "related_limit": 20,
+  "related_total_pages": 1
+}
+```
+
+**Search Behavior:**
+- Specific search ("Mercedes"): `matches` = Mercedes only, `related_results` = other cars
+- Generic search ("used car"): `matches` = all cars, `related_results` = empty
+
 **Create Product Body:**
 ```json
 {

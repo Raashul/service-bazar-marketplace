@@ -19,79 +19,110 @@ First, determine if this is a PRODUCT search or SERVICE search:
 - Product: searching for physical items to buy (iPhone, car, furniture, etc.)
 - Service: searching for someone to provide a service (makeup artist, tutor, repair, etc.)
 
+IMPORTANT - Brand/Model Detection:
+Determine if the user is searching for a SPECIFIC BRAND or just a generic product type.
+- Specific brands: Apple, Samsung, Mercedes, BMW, Toyota, Nike, Sony, Dell, HP, LG, etc.
+- Generic searches: "used car", "laptop", "phone", "shoes" (no specific brand)
+
 Extract the following information and return it as a JSON object:
 - listing_type: "product" or "service"
 - keywords: array of relevant search terms (for generic terms like "car", include synonyms like "vehicle", "automobile")
+- brands: array of specific brand names mentioned (e.g., ["Mercedes", "BMW"]). Empty array if no specific brand.
+- model: specific model if mentioned (e.g., "iPhone 16 Pro", "C-Class", "Galaxy S24"). null if no specific model.
+- is_specific_search: true if user mentioned a specific brand or model, false for generic searches
 - min_price: minimum price if specified (number only)
-- max_price: maximum price if specified (number only) 
+- max_price: maximum price if specified (number only)
 - currency: currency code (default to USD if not specified)
 - category: general category (Electronics, Services, Clothing, Vehicles, etc.)
 - subcategory: more specific category if identifiable
 - condition: one of "new", "like_new", "good", "fair", "poor" if mentioned or implied (products only)
 - features: array of specific features (for products: storage, color; for services: specializations)
 - service_type: type of service needed (only for services)
-- availability: time preferences if mentioned (only for services) 
+- availability: time preferences if mentioned (only for services)
 - experience_level: skill level required if mentioned (only for services)
 - is_negotiable: true if user mentions negotiable/OBO, false if firm price mentioned
 
-IMPORTANT: For generic searches like "used car" or "used phones", include multiple relevant keywords and synonyms to ensure broader matching.
-
 Examples:
-"laptop under $800" → 
+"Mercedes C-Class" →
 {
   "listing_type": "product",
-  "keywords": ["laptop"],
-  "max_price": 800,
-  "currency": "USD",
+  "keywords": ["Mercedes", "C-Class"],
+  "brands": ["Mercedes"],
+  "model": "C-Class",
+  "is_specific_search": true,
+  "category": "Vehicles",
+  "subcategory": "Car"
+}
+
+"Mercedes or BMW" →
+{
+  "listing_type": "product",
+  "keywords": ["Mercedes", "BMW", "car"],
+  "brands": ["Mercedes", "BMW"],
+  "model": null,
+  "is_specific_search": true,
+  "category": "Vehicles",
+  "subcategory": "Car"
+}
+
+"iPhone 16 Pro" →
+{
+  "listing_type": "product",
+  "keywords": ["iPhone", "iPhone 16", "Apple"],
+  "brands": ["Apple"],
+  "model": "iPhone 16 Pro",
+  "is_specific_search": true,
   "category": "Electronics",
-  "subcategory": "Computers"
+  "subcategory": "CellPhone & Accessories"
 }
 
 "used car" →
 {
   "listing_type": "product",
   "keywords": ["car", "vehicle", "automobile"],
+  "brands": [],
+  "model": null,
+  "is_specific_search": false,
   "category": "Vehicles",
-  "subcategory": "Cars",
+  "subcategory": "Car",
   "condition": "good"
 }
 
-"used phones" →
+"laptop under $800" →
 {
   "listing_type": "product",
-  "keywords": ["phone", "mobile", "smartphone", "cellphone"],
+  "keywords": ["laptop"],
+  "brands": [],
+  "model": null,
+  "is_specific_search": false,
+  "max_price": 800,
+  "currency": "USD",
   "category": "Electronics",
-  "subcategory": "CellPhone & Accessories",
-  "condition": "good"
+  "subcategory": "Computers"
+}
+
+"Samsung Galaxy S24" →
+{
+  "listing_type": "product",
+  "keywords": ["Samsung", "Galaxy", "S24"],
+  "brands": ["Samsung"],
+  "model": "Galaxy S24",
+  "is_specific_search": true,
+  "category": "Electronics",
+  "subcategory": "CellPhone & Accessories"
 }
 
 "makeup artist for weddings" →
 {
   "listing_type": "service",
   "keywords": ["makeup artist"],
+  "brands": [],
+  "model": null,
+  "is_specific_search": false,
   "category": "Services",
   "subcategory": "Beauty",
   "service_type": "makeup",
   "features": ["weddings", "bridal"]
-}
-
-"iPhone 15 Pro Max" →
-{
-  "listing_type": "product",
-  "keywords": ["iPhone", "iPhone 15"],
-  "category": "Electronics",
-  "subcategory": "Phones",
-  "features": ["15 Pro Max", "Pro Max"]
-}
-
-"piano teacher for kids" →
-{
-  "listing_type": "service",
-  "keywords": ["piano teacher", "music teacher"],
-  "category": "Services",
-  "subcategory": "Education", 
-  "service_type": "tutoring",
-  "features": ["piano", "kids"]
 }
 
 Return only the JSON object, no additional text:`;
@@ -125,6 +156,12 @@ Return only the JSON object, no additional text:`;
     // Validate and sanitize the response
     return {
       keywords: Array.isArray(metadata.keywords) ? metadata.keywords : [],
+      brands: Array.isArray(metadata.brands) ? metadata.brands : [],
+      model: typeof metadata.model === "string" ? metadata.model : undefined,
+      is_specific_search:
+        typeof metadata.is_specific_search === "boolean"
+          ? metadata.is_specific_search
+          : false,
       listing_type: ["product", "service"].includes(
         metadata.listing_type as string
       )
@@ -179,6 +216,9 @@ Return only the JSON object, no additional text:`;
       .filter((word) => word.length > 2);
     return {
       keywords: words,
+      brands: [],
+      model: undefined,
+      is_specific_search: false,
       currency: "USD",
     };
   }

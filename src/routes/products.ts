@@ -19,7 +19,11 @@ import {
 import { processMatches } from "../services/buyerMatchingService";
 import { updateRelatedMatches } from "../services/matchSyncService";
 import { extractSearchMetadata } from "../services/llmService";
-import { executeSearchQuery } from "../utils/searchQueryBuilder";
+import {
+  executeSearchQuery,
+  executeBrandMatchSearch,
+  executeRelatedSearch,
+} from "../utils/searchQueryBuilder";
 import {
   NaturalLanguageSearchRequest,
   NaturalLanguageSearchResponse,
@@ -637,7 +641,7 @@ router.post("/search/natural", async (req: Request, res: Response) => {
       }
     }
 
-    // Extract metadata using LLM (no location extraction)
+    // Extract metadata using LLM (includes brand/model detection)
     console.log(`🔍 Extracting metadata from query: "${query}"`);
     const extractedMetadata = await extractSearchMetadata(query);
     console.log(
@@ -645,80 +649,116 @@ router.post("/search/natural", async (req: Request, res: Response) => {
       JSON.stringify(extractedMetadata, null, 2)
     );
 
-    let searchResults;
-    let searchCenter:
-      | {
-          location: string;
-          coordinates: [number, number];
-          search_radius_km: number;
-        }
-      | undefined;
+    // Determine if this is a specific brand search or generic search
+    const isSpecificSearch = extractedMetadata.is_specific_search &&
+      ((extractedMetadata.brands && extractedMetadata.brands.length > 0) ||
+        extractedMetadata.model);
 
-    // Check if location data was provided by user
-    if (locationInfo) {
-      console.log(`🌍 Location-based search for: ${locationInfo.place_name}`);
+    console.log(`🔍 Search type: ${isSpecificSearch ? "SPECIFIC (brand/model)" : "GENERIC"}`);
 
-      // Perform location-based search using provided Mapbox data
-      const products = await locationService.searchProductsWithinRadius(
-        locationInfo.latitude,
-        locationInfo.longitude,
-        10, // 3km default radius
-        {
-          keywords: extractedMetadata.keywords,
-          listing_type: extractedMetadata.listing_type,
-          min_price: extractedMetadata.min_price,
-          max_price: extractedMetadata.max_price,
+    let matchesResult;
+    let relatedResult;
+
+    if (isSpecificSearch) {
+      // SPECIFIC SEARCH: Split into matches and related_results
+      const brands = extractedMetadata.brands || [];
+      const model = extractedMetadata.model;
+
+      console.log(`🎯 Searching for brands: [${brands.join(", ")}], model: ${model || "none"}`);
+
+      // Get exact brand/model matches
+      matchesResult = await executeBrandMatchSearch(
+        brands,
+        model,
+        extractedMetadata,
+        page,
+        limit
+      );
+
+      // Get IDs of matched products to exclude from related results
+      const matchedProductIds = matchesResult.products.map((p: any) => p.id);
+
+      // Get related results (same category, different brand)
+      relatedResult = await executeRelatedSearch(
+        brands,
+        model,
+        extractedMetadata,
+        matchedProductIds,
+        page,
+        limit
+      );
+
+      console.log(`🎯 Found ${matchesResult.total} matches, ${relatedResult.total} related`);
+    } else {
+      // GENERIC SEARCH: All results go to matches, related_results is empty
+      console.log("🔍 Generic search - all results in matches");
+
+      if (locationInfo) {
+        // Location-based generic search
+        console.log(`🌍 Location-based search for: ${locationInfo.place_name}`);
+
+        const products = await locationService.searchProductsWithinRadius(
+          locationInfo.latitude,
+          locationInfo.longitude,
+          10,
+          {
+            keywords: extractedMetadata.keywords,
+            listing_type: extractedMetadata.listing_type,
+            min_price: extractedMetadata.min_price,
+            max_price: extractedMetadata.max_price,
+            page,
+            limit,
+            fallbackQuery: query,
+          }
+        );
+
+        const total = await locationService.getLocationSearchCount(
+          locationInfo.latitude,
+          locationInfo.longitude,
+          10,
+          {
+            keywords: extractedMetadata.keywords,
+            listing_type: extractedMetadata.listing_type,
+            min_price: extractedMetadata.min_price,
+            max_price: extractedMetadata.max_price,
+            fallbackQuery: query,
+          }
+        );
+
+        matchesResult = {
+          products: await addImagesToProducts(products),
+          total,
           page,
           limit,
-          fallbackQuery: query, // Add original query for category mapping
-        }
-      );
+          totalPages: Math.ceil(total / limit),
+        };
+      } else {
+        // Regular generic search without location
+        matchesResult = await executeSearchQuery(extractedMetadata, page, limit, query);
+      }
 
-      const total = await locationService.getLocationSearchCount(
-        locationInfo.latitude,
-        locationInfo.longitude,
-        3,
-        {
-          keywords: extractedMetadata.keywords,
-          listing_type: extractedMetadata.listing_type,
-          min_price: extractedMetadata.min_price,
-          max_price: extractedMetadata.max_price,
-          fallbackQuery: query, // Add original query for category mapping
-        }
-      );
-
-      searchResults = {
-        products: await addImagesToProducts(products),
-        total,
+      // For generic search, related_results is empty
+      relatedResult = {
+        products: [],
+        total: 0,
         page,
         limit,
+        totalPages: 0,
       };
-
-      searchCenter = {
-        location: locationInfo.place_name,
-        coordinates: [locationInfo.longitude, locationInfo.latitude] as [
-          number,
-          number
-        ],
-        search_radius_km: 3,
-      };
-
-      console.log(
-        `🌍 Found ${total} results within 3km of ${locationInfo.place_name}`
-      );
-    } else {
-      // Regular search without location
-      console.log("🔍 Regular search without location");
-      searchResults = await executeSearchQuery(extractedMetadata, page, limit, query);
     }
 
-    // Simplified response with only products and pagination
+    // Response with matches and related_results
     res.json({
-      products: searchResults.products,
-      total: searchResults.total,
-      page: searchResults.page,
-      limit: searchResults.limit,
-      totalPages: Math.ceil(searchResults.total / searchResults.limit),
+      matches: matchesResult.products,
+      total_matches: matchesResult.total,
+      matches_page: matchesResult.page,
+      matches_limit: matchesResult.limit,
+      matches_total_pages: matchesResult.totalPages || Math.ceil(matchesResult.total / matchesResult.limit),
+      related_results: relatedResult.products,
+      total_related: relatedResult.total,
+      related_page: relatedResult.page,
+      related_limit: relatedResult.limit,
+      related_total_pages: relatedResult.totalPages,
     });
   } catch (error) {
     console.error("Natural language search error:", error);

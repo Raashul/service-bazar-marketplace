@@ -619,26 +619,83 @@ Content-Type: application/json
     region: string;
     country: string;
   };
-  limit?: number;          // Default: 20
-  page?: number;           // Default: 1
+  limit?: number;          // Default: 20 (applies to both matches and related_results)
+  page?: number;           // Default: 1 (applies to both matches and related_results)
 }
 ```
 
 **Example Queries:**
-- "used iPhone 13 under $800 near Arlington, VA"
-- "yoga classes in DC area"
-- "MacBook Pro good condition less than $1500"
+- "Mercedes C-Class" (specific brand search)
+- "Mercedes or BMW under $30000" (multi-brand search)
+- "used car" (generic search)
+- "iPhone 16 Pro" (specific model search)
+- "laptop under $800" (generic with price)
+
+**Search Behavior:**
+
+The search differentiates between **specific searches** (brand/model mentioned) and **generic searches**:
+
+| Search Type | Example | matches | related_results |
+|-------------|---------|---------|-----------------|
+| Specific brand | "Mercedes C-Class" | Only Mercedes products | Other cars (Toyota, BMW, etc.) |
+| Multi-brand | "Mercedes or BMW" | Mercedes AND BMW products | Other cars |
+| Generic | "used car" | All matching cars | Empty |
+| Specific model | "iPhone 16 Pro" | Only iPhone 16 Pro listings | Other phones |
 
 **Success Response (200):**
 ```json
 {
-  "products": [ /* array of matching products with images */ ],
-  "total": 15,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 1
+  "matches": [
+    {
+      "id": "uuid",
+      "title": "Mercedes C-Class 2020",
+      "description": "...",
+      "price": 25000.00,
+      "category": "Vehicles",
+      "subcategory": "Car",
+      "condition": "good",
+      "seller_name": "John Doe",
+      "product_images": [...]
+    }
+  ],
+  "total_matches": 5,
+  "matches_page": 1,
+  "matches_limit": 20,
+  "matches_total_pages": 1,
+  "related_results": [
+    {
+      "id": "uuid",
+      "title": "Toyota Camry 2021",
+      "description": "...",
+      "price": 22000.00,
+      "category": "Vehicles",
+      "subcategory": "Car",
+      "condition": "like_new",
+      "seller_name": "Jane Smith",
+      "product_images": [...]
+    }
+  ],
+  "total_related": 12,
+  "related_page": 1,
+  "related_limit": 20,
+  "related_total_pages": 1
 }
 ```
+
+**Response Fields:**
+
+| Field | Description |
+|-------|-------------|
+| matches | Products matching the exact brand/model searched (or all results for generic searches) |
+| total_matches | Total count of exact matches |
+| matches_page | Current page for matches |
+| matches_limit | Page size for matches |
+| matches_total_pages | Total pages for matches |
+| related_results | Products in same category but different brand (empty for generic searches) |
+| total_related | Total count of related results |
+| related_page | Current page for related results |
+| related_limit | Page size for related results |
+| related_total_pages | Total pages for related results |
 
 **Error Responses:**
 | Status | Condition |
@@ -1729,8 +1786,11 @@ RealEstate
 4. Pass `location_data` to product creation or preference endpoints
 
 ### Natural Language Search
-- The backend uses AI to extract search parameters
+- The backend uses AI to extract search parameters (keywords, brands, models, price range, category)
 - Include location_data for proximity-based results (3km radius)
+- Response contains two lists: `matches` (exact brand/model matches) and `related_results` (same category, different brand)
+- For generic searches (no brand specified), all results go to `matches` and `related_results` is empty
+- Both lists are independently paginated
 - Gracefully handle 503 errors when LLM service is unavailable
 
 ### Tinder-Style Messaging
@@ -1764,4 +1824,6 @@ RealEstate
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2025-01-27 | Natural language search now returns split results: `matches` (exact brand/model) and `related_results` (same category, different brand). Both lists are independently paginated. |
+| 1.1 | 2025-01-27 | Added `GET /products/home` endpoint for featured and recent products. Added `is_featured` field to products. Seller ID now extracted from JWT token for product creation. |
 | 1.0 | 2025-01-20 | Initial API specification |
